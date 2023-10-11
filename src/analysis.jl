@@ -353,6 +353,37 @@ function kdensity(k,psi::Psi{3})
 end
 
 """
+	full_spectrum(k,ψ)
+
+Caculate the velocity correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+function full_spectrum(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    vx,vy = velocity(psi,Ω)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
 	incompressible_spectrum(k,ψ)
 
 Caculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
