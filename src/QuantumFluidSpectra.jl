@@ -18,10 +18,16 @@ struct Psi{D} <: Field
     K::NTuple{D}
 end
 
+struct Psi_real{D} <: Field
+    ψ::Array{Float64,D}
+    X::NTuple{D}
+    K::NTuple{D}
+end
+
 include("arrays.jl")
 include("analysis.jl")
 
-export Psi, xvecs, kvecs
+export Psi, Psi_real, xvecs, kvecs
 export auto_correlate, cross_correlate
 export bessel_reduce, sinc_reduce, gv, gv3
 export log10range, convolve
