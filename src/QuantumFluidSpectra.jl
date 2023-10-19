@@ -24,6 +24,22 @@ struct Psi_real{D} <: Field
     K::NTuple{D}
 end
 
+struct Psi_qper2{D} <: Field
+    ψ::Array{Complex{Float64},D}
+    X::NTuple{D}
+    K::NTuple{D}
+    Γ::NTuple{1}
+    s::NTuple{1}
+end
+
+struct Psi_qper3{D} <: Field
+    ψ::Array{Complex{Float64},D}
+    X::NTuple{D}
+    K::NTuple{D}
+    Γ::NTuple{3}
+    s::NTuple{3}
+end
+
 include("arrays.jl")
 include("analysis.jl")
 
