@@ -258,6 +258,39 @@ function energydecomp(psi::Psi{3})
 end
 
 """
+	et,ei,ec = energydecomp_qper(psi::Xfield{D})
+
+Decomposes the hydrodynamic kinetic energy of `psi`, returning the total `et`, incompressible `ei`,
+and compressible `ec` energy densities in position space. `D` can be 2 or 3 dimensions.
+Uses quasiperiodic boundary conditions.
+"""
+function energydecomp_qper(psi::Psi{2})
+    @unpack ψ,K = psi; kx,ky = K
+    a = abs.(ψ)
+    vx, vy = velocity_qper(psi)
+    wx = @. a*vx; wy = @. a*vy
+    Wi, Wc = helmholtz(wx,wy,kx,ky)
+    wxi, wyi = Wi; wxc, wyc = Wc
+    et = @. abs2(wx) + abs2(wy); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc); ec *= 0.5
+    return et, ei, ec
+end
+
+function energydecomp_qper(psi::Psi{3})
+	@unpack ψ,K = psi; kx,ky,kz = K
+    a = abs.(ψ)
+    vx,vy,vz = velocity_qper(psi)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, Wc = helmholtz(wx,wy,wz,kx,ky,kz)
+    wxi, wyi, wzi = Wi; wxc, wyc, wzc = Wc
+    et = @. abs2(wx) + abs2(wy) + abs2(wz); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi) + abs2(wzi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc) + abs2(wzc); ec *= 0.5
+    return et, ei, ec
+end
+
+"""
 	zeropad(A)
 
 Zero-pad the array `A` to twice the size with the same element type as `A`.
@@ -421,6 +454,32 @@ function kinetic_density(k,psi::Psi{3})
 end
 
 """
+	kinetic_density_qper(k,ψ,X,K)
+
+Calculates the kinetic enery spectrum for wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function kinetic_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi; 
+    ψx,ψy = gradient_qper(psi)
+	cx = auto_correlate(ψx,X,K)
+	cy = auto_correlate(ψy,X,K)
+    C = @. 0.5(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function kinetic_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi;  
+    ψx,ψy,ψz = gradient_qper(psi)
+	cx = auto_correlate(ψx,X,K)
+    cy = auto_correlate(ψy,X,K)
+    cz = auto_correlate(ψz,X,K)
+    C = @. 0.5(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
 	kdensity(k,ψ,X,K)
 
 Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
@@ -470,6 +529,38 @@ function full_spectrum(k,psi::Psi{3})
 end
 
 """
+	full_spectrum_qper(k,ψ)
+
+Caculate the velocity correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
+Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function full_spectrum_qper(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    vx,vy = velocity_qper(psi,Ω)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_spectrum_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    vx,vy,vz = velocity_qper(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
 	incompressible_spectrum(k,ψ)
 
 Caculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
@@ -505,6 +596,42 @@ function incompressible_spectrum(k,psi::Psi{3})
 end
 
 """
+	incompressible_spectrum_qper(k,ψ)
+
+Caculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function incompressible_spectrum_qper(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    vx,vy = velocity_qper(psi,Ω)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+    Wi, _ = helmholtz(wx,wy,K...)
+    wx,wy = Wi
+
+	cx = auto_correlate(wx,X,K)
+	cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_spectrum_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    vx,vy,vz = velocity_qper(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, _ = helmholtz(wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
 	compressible_spectrum(k,ψ,X,K)
 
 Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
@@ -527,6 +654,41 @@ end
 function compressible_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi
     vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    _, Wc = helmholtz(wx,wy,wz,K...)
+    wx,wy,wz = Wc
+
+	cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	compressible_spectrum_qper(k,ψ,X,K)
+
+Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+function compressible_spectrum_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_qper(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+    _, Wc = helmholtz(wx,wy,K...)
+    wx,wy = Wc
+
+	cx = auto_correlate(wx,X,K)
+	cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_spectrum_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
     _, Wc = helmholtz(wx,wy,wz,K...)
@@ -611,6 +773,48 @@ function incompressible_density(k,psi::Psi{3})
 end
 
 """
+    incompressible_density_qper(k,ψ,X,K)
+
+Calculates the kinetic energy density of the incompressible velocity field in the wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+"""
+function incompressible_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(ux,uy,K...)
+    wix,wiy = Wi
+    U = @. exp(im*angle(ψ))
+    @. wix *= U # restore phase factors
+    @. wiy *= U
+
+	cx = auto_correlate(wix,X,K)
+	cy = auto_correlate(wiy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi 
+    vx,vy,vz = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(ux,uy,uz,K...)
+    wix,wiy,wiz = Wi
+    U = @. exp(im*angle(ψ))
+    @. wix *= U # restore phase factors
+    @. wiy *= U
+    @. wiz *= U
+
+	cx = auto_correlate(wix,X,K)
+    cy = auto_correlate(wiy,X,K)
+    cz = auto_correlate(wiz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
     compressible_density(k,ψ,X,K)
 
 Calculates the kinetic energy density of the compressible velocity field in the wavefunction ``\\psi``, at the
@@ -636,6 +840,48 @@ end
 function compressible_density(k,psi::Psi{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(ux,uy,uz,K...)
+    wcx,wcy,wcz = Wc
+    U = @. exp(im*angle(ψ))
+    @. wcx *= U # restore phase factors
+    @. wcy *= U
+    @. wcz *= U
+
+	cx = auto_correlate(wcx,X,K)
+    cy = auto_correlate(wcy,X,K)
+    cz = auto_correlate(wcz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+    compressible_density_qper(k,ψ,X,K)
+
+Calculates the kinetic energy density of the compressible velocity field in the wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+"""
+function compressible_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(ux,uy,K...)
+    wcx,wcy = Wc
+    U = @. exp(im*angle(ψ))
+    @. wcx *= U # restore phase factors
+    @. wcy *= U
+
+	cx = auto_correlate(wcx,X,K)
+	cy = auto_correlate(wcy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi 
+    vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
     ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
     Wi, Wc = helmholtz(ux,uy,uz,K...)
