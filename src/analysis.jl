@@ -6,7 +6,7 @@ The `D` gradient components returned are `D`-dimensional arrays.
 """
 function gradient(psi::Psi{1})
 	@unpack ψ,K = psi; kx = K[1] 
-    ϕ = fft(ψ)
+    	ϕ = fft(ψ)
 	ψx = ifft(im*kx.*ϕ)
     return ψx
 end
@@ -29,6 +29,37 @@ function gradient(psi::Psi{3})
 end
 
 """
+	gradient_qper(psi::Psi{D})
+
+Compute the `D` vector gradient components of a wavefunction `Psi` of spatial dimension `D`.
+The `D` gradient components returned are `D`-dimensional arrays.
+Uses quasiperiodic boundary conditions as determined by the circulation tuple `Γ` and the gauge transformation tuple `s`.
+This is not well-defined when D = 1.
+"""
+function gradient_qper(psi::Psi{2})
+	@unpack ψ,X,K,Γ,s = psi; kx,ky = K; x,y = X
+	ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,dims=[1])
+	ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,dims=[2])
+	ψx = exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ifft(im*(kx .+ 2π*(Γ[1]*y' .- s[1])).*ϕ1,dims=[1])
+	ψy = exp.(2im*π*s[1]*x).*ifft(im*(ky' .- 2π*Γ[1]*x).*ϕ2,dims=[2])
+	return ψx,ψy
+end
+
+function gradient_qper(psi::Psi{3})
+	@unpack ψ,X,K,Γ,s = psi; kx,ky,kz = K; x,y,z = X
+	ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,dims=[1])
+	ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,dims=[2])
+	ϕ3 = fft(exp.(2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3]))).*ψ,dims=[3])
+	ψx = ifft(im*(kx.- 2π*(Γ[3]*reshape(z,1,1,length(z)) .- Γ[1]*y' .+ s[1])).*ϕ1,dims=[1])
+	ψx .*= exp.(-2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1])))
+	ψy = ifft(im*(ky' .- 2π*(Γ[1]*x .- Γ[2]*reshape(z,1,1,length(z)) .+ s[2])).*ϕ2,dims=[2])
+	ψy .*= exp.(-2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2])))
+	ψz = ifft(im*(reshape(kz,1,1,length(z)).- 2π*(Γ[2]*y' .- Γ[3]*x .+ s[3])).*ϕ3,dims=[3])
+	ψz .*= exp.(-2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3])))
+	return ψx,ψy,ψz
+end
+
+"""
 	current(psi::Psi{D})
 
 Compute the `D` current components of an `Psi` of spatial dimension `D`.
@@ -43,16 +74,40 @@ end
 
 function current(psi::Psi{2},Ω = 0)
 	@unpack ψ,X = psi 
-    x,y = X
-    ψx,ψy = gradient(psi)
+    	x,y = X
+    	ψx,ψy = gradient(psi)
 	jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
 	jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
 	return jx,jy
 end
 
 function current(psi::Psi{3})
-    @unpack ψ = psi 
-    ψx,ψy,ψz = gradient(psi)
+    	@unpack ψ = psi 
+    	ψx,ψy,ψz = gradient(psi)
+	jx = @. imag(conj(ψ)*ψx)
+	jy = @. imag(conj(ψ)*ψy)
+	jz = @. imag(conj(ψ)*ψz)
+	return jx,jy,jz
+end
+
+"""
+	current_qper(psi::Psi{D})
+
+Compute the `D` current components of an `Psi` of spatial dimension `D`.
+The `D` cartesian components returned are `D`-dimensional arrays.
+Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
+"""
+function current_qper(psi::Psi{2})
+	@unpack ψ = psi 
+    	ψx,ψy = gradient_qper(psi)
+	jx = @. imag(conj(ψ)*ψx)
+	jy = @. imag(conj(ψ)*ψy)
+	return jx,jy
+end
+
+function current_qper(psi::Psi{3})
+    	@unpack ψ = psi 
+    	ψx,ψy,ψz = gradient_qper(psi)
 	jx = @. imag(conj(ψ)*ψx)
 	jy = @. imag(conj(ψ)*ψy)
 	jz = @. imag(conj(ψ)*ψz)
@@ -67,34 +122,65 @@ The `D` velocities returned are `D`-dimensional arrays.
 """
 function velocity(psi::Psi{1})
 	@unpack ψ = psi
-    ψx = gradient(psi)
+    	ψx = gradient(psi)
 	vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
-    @. vx[isnan(vx)] = zero(vx[1])
+    	@. vx[isnan(vx)] = zero(vx[1])
 	return vx
 end
 
 function velocity(psi::Psi{2},Ω = 0)
 	@unpack ψ,X = psi
-    x,y = X
-    ψx,ψy = gradient(psi)
-    rho = abs2.(ψ)
+    	x,y = X
+    	ψx,ψy = gradient(psi)
+    	rho = abs2.(ψ)
 	vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
 	vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
-    @. vx[isnan(vx)] = zero(vx[1])
-    @. vy[isnan(vy)] = zero(vy[1])
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
 	return vx,vy
 end
 
 function velocity(psi::Psi{3})
 	@unpack ψ = psi
 	rho = abs2.(ψ)
-    ψx,ψy,ψz = gradient(psi)
+    	ψx,ψy,ψz = gradient(psi)
 	vx = @. imag(conj(ψ)*ψx)/rho
 	vy = @. imag(conj(ψ)*ψy)/rho
 	vz = @. imag(conj(ψ)*ψz)/rho
-    @. vx[isnan(vx)] = zero(vx[1])
-    @. vy[isnan(vy)] = zero(vy[1])
-    @. vz[isnan(vz)] = zero(vz[1])
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+    	@. vz[isnan(vz)] = zero(vz[1])
+	return vx,vy,vz
+end
+
+"""
+	velocity_qper(psi::Psi{D})
+
+Compute the `D` velocity components of an `Psi` of spatial dimension `D`.
+The `D` velocities returned are `D`-dimensional arrays.
+Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
+"""
+function velocity_qper(psi::Psi{2})
+	@unpack ψ = psi
+    	ψx,ψy = gradient_qper(psi)
+    	rho = abs2.(ψ)
+	vx = @. imag(conj(ψ)*ψx)/rho
+	vy = @. imag(conj(ψ)*ψy)/rho 
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+	return vx,vy
+end
+
+function velocity_qper(psi::Psi{3})
+	@unpack ψ = psi
+	rho = abs2.(ψ)
+    	ψx,ψy,ψz = gradient_qper(psi)
+	vx = @. imag(conj(ψ)*ψx)/rho
+	vy = @. imag(conj(ψ)*ψy)/rho
+	vz = @. imag(conj(ψ)*ψz)/rho
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+    	@. vz[isnan(vz)] = zero(vz[1])
 	return vx,vy,vz
 end
 
