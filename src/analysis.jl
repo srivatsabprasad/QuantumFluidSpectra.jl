@@ -671,6 +671,7 @@ end
 
 Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
 """
 function compressible_spectrum_qper(k,psi::Psi{2})
     @unpack ψ,X,K = psi 
@@ -777,6 +778,7 @@ end
 
 Calculates the kinetic energy density of the incompressible velocity field in the wavefunction ``\\psi``, at the
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
 """
 function incompressible_density_qper(k,psi::Psi{2})
     @unpack ψ,X,K = psi 
@@ -861,6 +863,7 @@ end
 
 Calculates the kinetic energy density of the compressible velocity field in the wavefunction ``\\psi``, at the
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
 """
 function compressible_density_qper(k,psi::Psi{2})
     @unpack ψ,X,K = psi 
@@ -989,6 +992,59 @@ function ic_density(k,psi::Psi{3})
 end
 
 """
+    ic_density_qper(k,ψ,X,K)
+
+Energy density of the incompressible-compressible interaction in the wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function ic_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_aper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(ux,uy,K...)
+    wix,wiy = Wi; wcx,wcy = Wc
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # restore phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wcx *= im*U 
+    @. wcy *= im*U
+
+    cicx = convolve(wix,wcx,X,K) 
+    ccix = convolve(wcx,wix,X,K)
+    cicy = convolve(wiy,wcy,X,K) 
+    cciy = convolve(wcy,wiy,X,K)
+    C = @. 0.5*(cicx + ccix + cicy + cciy)  
+    return bessel_reduce(k,X...,C)
+end
+
+function ic_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi 
+    vx,vy,vz = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz 
+    Wi, Wc = helmholtz(ux,uy,uz,K...)
+    wix,wiy,wiz = Wi; wcx,wcy,wcz = Wc
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # restore phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wiz *= im*U   
+    @. wcx *= im*U 
+    @. wcy *= im*U
+    @. wcz *= im*U
+
+    cicx = convolve(wix,wcx,X,K) 
+    ccix = convolve(wcx,wix,X,K)
+    cicy = convolve(wiy,wcy,X,K) 
+    cciy = convolve(wcy,wiy,X,K)
+    cicz = convolve(wiz,wcz,X,K) 
+    cciz = convolve(wcz,wiz,X,K)
+    C = @. 0.5*(cicx + ccix + cicy + cciy + cicz + cciz)  
+    return sinc_reduce(k,X...,C)
+end
+
+"""
     iq_density(k,ψ,X,K)
 
 Energy density of the incompressible-quantum pressure interaction in the wavefunction ``\\psi``, at the
@@ -1022,6 +1078,67 @@ end
 function iq_density(k,psi::Psi{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(ux,uy,uz,K...)
+    wix,wiy,wiz = Wi
+
+    psia = Psi(abs.(ψ) |> complex,X,K )
+    wqx,wqy,wqz = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wiz *= im*U
+    @. wqx *= U
+    @. wqy *= U
+    @. wqz *= U
+
+    ciqx = convolve(wix,wqx,X,K) 
+    cqix = convolve(wqx,wix,X,K) 
+    ciqy = convolve(wiy,wqy,X,K) 
+    cqiy = convolve(wqy,wiy,X,K) 
+    ciqz = convolve(wiz,wqz,X,K) 
+    cqiz = convolve(wqz,wiz,X,K) 
+    C = @. 0.5*(ciqx + cqix + ciqy + cqiy + ciqz + cqiz) 
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+    iq_density_qper(k,ψ,X,K)
+
+Energy density of the incompressible-quantum pressure interaction in the wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `xk_arrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function iq_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(ux,uy,K...)
+    wix,wiy = Wi 
+
+    psia = Psi(abs.(ψ) |> complex,X,K )
+    wqx,wqy = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wqx *= U
+    @. wqy *= U
+
+    ciqx = convolve(wix,wqx,X,K) 
+    cqix = convolve(wqx,wix,X,K) 
+    ciqy = convolve(wiy,wqy,X,K) 
+    cqiy = convolve(wqy,wiy,X,K) 
+    C = @. 0.5*(ciqx + cqix + ciqy + cqiy) 
+    return bessel_reduce(k,X...,C)
+end
+
+function iq_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi 
+    vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
     ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
     Wi, Wc = helmholtz(ux,uy,uz,K...)
@@ -1083,6 +1200,67 @@ end
 function cq_density(k,psi::Psi{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(ux,uy,uz,K...)
+    wcx,wcy,wcz = Wc  
+
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wqx,wqy,wqz = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wcx *= im*U # phase factors and make u -> w fields
+    @. wcy *= im*U
+    @. wcz *= im*U
+    @. wqx *= U
+    @. wqy *= U
+    @. wqz *= U
+
+    ccqx = convolve(wcx,wqx,X,K) 
+    cqcx = convolve(wqx,wcx,X,K) 
+    ccqy = convolve(wcy,wqy,X,K) 
+    cqcy = convolve(wqy,wcy,X,K) 
+    ccqz = convolve(wcz,wqz,X,K) 
+    cqcz = convolve(wqz,wcz,X,K) 
+    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy + ccqz + cqcz) 
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+    cq_density_qper(k,ψ,X,K)
+
+Energy density of the compressible-quantum pressure interaction in the wavefunction ``\\psi``, at the
+points `k`. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function cq_density_qper(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    vx,vy = velocity_qper(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(ux,uy,K...)
+    wcx,wcy = Wc 
+
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wqx,wqy = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wcx *= im*U # phase factors and make u -> w fields
+    @. wcy *= im*U
+    @. wqx *= U
+    @. wqy *= U
+
+    ccqx = convolve(wcx,wqx,X,K) 
+    cqcx = convolve(wqx,wcx,X,K) 
+    ccqy = convolve(wcy,wqy,X,K) 
+    cqcy = convolve(wqy,wcy,X,K) 
+    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy) 
+    return bessel_reduce(k,X...,C)
+end
+
+function cq_density_qper(k,psi::Psi{3})
+    @unpack ψ,X,K = psi 
+    vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
     ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
     Wi, Wc = helmholtz(ux,uy,uz,K...)
