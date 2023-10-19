@@ -32,7 +32,7 @@ export auto_correlate, cross_correlate
 export bessel_reduce, sinc_reduce, gv, gv3
 export log10range, convolve
 
-export xk_arrays, fft_differentials
+export xk_arrays, xk_arraysalt, fft_differentials
 export gradient, velocity, current
 export energydecomp, helmholtz, kinetic_density, full_spectrum
 export incompressible_spectrum, compressible_spectrum, qpressure_spectrum
