@@ -49,7 +49,7 @@ export bessel_reduce, sinc_reduce, gv, gv3
 export log10range, convolve
 
 export xk_arrays, xk_arraysalt, fft_differentials
-export gradient, velocity, current
+export gradient, gradient_qper, velocity, velocity_qper, current, current_qper
 export energydecomp, helmholtz, kinetic_density, full_spectrum
 export incompressible_spectrum, compressible_spectrum, qpressure_spectrum
 export incompressible_density, compressible_density, qpressure_density
