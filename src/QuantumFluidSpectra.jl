@@ -43,7 +43,7 @@ end
 include("arrays.jl")
 include("analysis.jl")
 
-export Psi, Psi_real, xvecs, kvecs
+export Psi, Psi_real, Psi_qper2, Psi_qper3, xvecs, kvecs
 export auto_correlate, cross_correlate
 export bessel_reduce, sinc_reduce, gv, gv3
 export log10range, convolve
