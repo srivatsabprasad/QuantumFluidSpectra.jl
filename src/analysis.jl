@@ -38,23 +38,23 @@ This is not well-defined when D = 1.
 """
 function gradient_qper(psi::Psi{2})
 	@unpack ψ,X,K,Γ,s = psi; kx,ky = K; x,y = X
-	ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,dims=[1])
-	ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,dims=[2])
-	ψx = exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ifft(im*(kx .+ 2π*(Γ[1]*y' .- s[1])).*ϕ1,dims=[1])
-	ψy = exp.(2im*π*s[1]*x).*ifft(im*(ky' .- 2π*Γ[1]*x).*ϕ2,dims=[2])
+	ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,[1])
+	ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,[2])
+	ψx = exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ifft(im*(kx .+ 2π*(Γ[1]*y' .- s[1])).*ϕ1,[1])
+	ψy = exp.(2im*π*s[1]*x).*ifft(im*(ky' .- 2π*Γ[1]*x).*ϕ2,[2])
 	return ψx,ψy
 end
 
 function gradient_qper(psi::Psi{3})
 	@unpack ψ,X,K,Γ,s = psi; kx,ky,kz = K; x,y,z = X
-	ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,dims=[1])
-	ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,dims=[2])
-	ϕ3 = fft(exp.(2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3]))).*ψ,dims=[3])
-	ψx = ifft(im*(kx.- 2π*(Γ[3]*reshape(z,1,1,length(z)) .- Γ[1]*y' .+ s[1])).*ϕ1,dims=[1])
+	ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,[1])
+	ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,[2])
+	ϕ3 = fft(exp.(2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3]))).*ψ,[3])
+	ψx = ifft(im*(kx.- 2π*(Γ[3]*reshape(z,1,1,length(z)) .- Γ[1]*y' .+ s[1])).*ϕ1,[1])
 	ψx .*= exp.(-2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1])))
-	ψy = ifft(im*(ky' .- 2π*(Γ[1]*x .- Γ[2]*reshape(z,1,1,length(z)) .+ s[2])).*ϕ2,dims=[2])
+	ψy = ifft(im*(ky' .- 2π*(Γ[1]*x .- Γ[2]*reshape(z,1,1,length(z)) .+ s[2])).*ϕ2,[2])
 	ψy .*= exp.(-2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2])))
-	ψz = ifft(im*(reshape(kz,1,1,length(z)).- 2π*(Γ[2]*y' .- Γ[3]*x .+ s[3])).*ϕ3,dims=[3])
+	ψz = ifft(im*(reshape(kz,1,1,length(z)).- 2π*(Γ[2]*y' .- Γ[3]*x .+ s[3])).*ϕ3,[3])
 	ψz .*= exp.(-2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3])))
 	return ψx,ψy,ψz
 end
@@ -535,9 +535,9 @@ Caculate the velocity correlation spectrum for wavefunction ``\\psi`` without an
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function full_spectrum_qper(k,psi::Psi{2},Ω=0.0)
+function full_spectrum_qper(k,psi::Psi{2})
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity_qper(psi,Ω)
+    vx,vy = velocity_qper(psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy
 
@@ -602,9 +602,9 @@ Caculate the incompressible velocity correlation spectrum for wavefunction ``\\p
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function incompressible_spectrum_qper(k,psi::Psi{2},Ω=0.0)
+function incompressible_spectrum_qper(k,psi::Psi{2})
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity_qper(psi,Ω)
+    vx,vy = velocity_qper(psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy
     Wi, _ = helmholtz(wx,wy,K...)
