@@ -53,7 +53,7 @@ export gradient, gradient_qper, velocity, velocity_qper, current, current_qper
 export energydecomp, energydecomp_qper, helmholtz, kinetic_density, kinetic_density_qper, full_spectrum, full_spectrum_qper
 export incompressible_spectrum, incompressible_spectrum_qper, compressible_spectrum, compressible_spectrum_qper, qpressure_spectrum
 export incompressible_density, incompressible_density_qper, compressible_density, compressible_density_qper, qpressure_density
-export ic_density, iq_density, cq_density
+export ic_density, ic_density_qper, iq_density, iq_density_qper, cq_density, cq_density_qper
 export density_spectrum, trap_spectrum
 
 end
