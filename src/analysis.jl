@@ -36,7 +36,7 @@ The `D` gradient components returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions as determined by the circulation tuple `Γ` and the gauge transformation tuple `s`.
 This is not well-defined when D = 1.
 """
-function gradient_qper(psi::Psi{2})
+function gradient_qper(psi::Psi_qper2{2})
 	@unpack ψ,X,K,Γ,s = psi; kx,ky = K; x,y = X
 	ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,[1])
 	ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,[2])
@@ -45,7 +45,7 @@ function gradient_qper(psi::Psi{2})
 	return ψx,ψy
 end
 
-function gradient_qper(psi::Psi{3})
+function gradient_qper(psi::Psi_qper3{3})
 	@unpack ψ,X,K,Γ,s = psi; kx,ky,kz = K; x,y,z = X
 	ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,[1])
 	ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,[2])
@@ -97,7 +97,7 @@ Compute the `D` current components of an `Psi` of spatial dimension `D`.
 The `D` cartesian components returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
 """
-function current_qper(psi::Psi{2})
+function current_qper(psi::Psi_qper2{2})
 	@unpack ψ = psi 
     	ψx,ψy = gradient_qper(psi)
 	jx = @. imag(conj(ψ)*ψx)
@@ -105,7 +105,7 @@ function current_qper(psi::Psi{2})
 	return jx,jy
 end
 
-function current_qper(psi::Psi{3})
+function current_qper(psi::Psi_qper3{3})
     	@unpack ψ = psi 
     	ψx,ψy,ψz = gradient_qper(psi)
 	jx = @. imag(conj(ψ)*ψx)
@@ -160,7 +160,7 @@ Compute the `D` velocity components of an `Psi` of spatial dimension `D`.
 The `D` velocities returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
 """
-function velocity_qper(psi::Psi{2})
+function velocity_qper(psi::Psi_qper2{2})
 	@unpack ψ = psi
     	ψx,ψy = gradient_qper(psi)
     	rho = abs2.(ψ)
@@ -171,7 +171,7 @@ function velocity_qper(psi::Psi{2})
 	return vx,vy
 end
 
-function velocity_qper(psi::Psi{3})
+function velocity_qper(psi::Psi_qper3{3})
 	@unpack ψ = psi
 	rho = abs2.(ψ)
     	ψx,ψy,ψz = gradient_qper(psi)
@@ -257,6 +257,32 @@ function energydecomp(psi::Psi{3})
     return et, ei, ec
 end
 
+function energydecomp(psi::Psi_qper2{2})
+    @unpack ψ,K = psi; kx,ky = K
+    a = abs.(ψ)
+    vx, vy = velocity(psi)
+    wx = @. a*vx; wy = @. a*vy
+    Wi, Wc = helmholtz(wx,wy,kx,ky)
+    wxi, wyi = Wi; wxc, wyc = Wc
+    et = @. abs2(wx) + abs2(wy); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc); ec *= 0.5
+    return et, ei, ec
+end
+
+function energydecomp(psi::Psi_qper3{3})
+	@unpack ψ,K = psi; kx,ky,kz = K
+    a = abs.(ψ)
+    vx,vy,vz = velocity(psi)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, Wc = helmholtz(wx,wy,wz,kx,ky,kz)
+    wxi, wyi, wzi = Wi; wxc, wyc, wzc = Wc
+    et = @. abs2(wx) + abs2(wy) + abs2(wz); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi) + abs2(wzi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc) + abs2(wzc); ec *= 0.5
+    return et, ei, ec
+end
+
 """
 	et,ei,ec = energydecomp_qper(psi::Xfield{D})
 
@@ -264,7 +290,7 @@ Decomposes the hydrodynamic kinetic energy of `psi`, returning the total `et`, i
 and compressible `ec` energy densities in position space. `D` can be 2 or 3 dimensions.
 Uses quasiperiodic boundary conditions.
 """
-function energydecomp_qper(psi::Psi{2})
+function energydecomp_qper(psi::Psi_qper2{2})
     @unpack ψ,K = psi; kx,ky = K
     a = abs.(ψ)
     vx, vy = velocity_qper(psi)
@@ -277,7 +303,7 @@ function energydecomp_qper(psi::Psi{2})
     return et, ei, ec
 end
 
-function energydecomp_qper(psi::Psi{3})
+function energydecomp_qper(psi::Psi_qper3{3})
 	@unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
     vx,vy,vz = velocity_qper(psi)
@@ -453,6 +479,25 @@ function kinetic_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function kinetic_density(k,psi::Psi_qper3{2})
+    @unpack ψ,X,K = psi; 
+    ψx,ψy = gradient(psi)
+	cx = auto_correlate(ψx,X,K)
+	cy = auto_correlate(ψy,X,K)
+    C = @. 0.5(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function kinetic_density(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi;  
+    ψx,ψy,ψz = gradient(psi)
+	cx = auto_correlate(ψx,X,K)
+    cy = auto_correlate(ψy,X,K)
+    cz = auto_correlate(ψz,X,K)
+    C = @. 0.5(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
 """
 	kinetic_density_qper(k,ψ,X,K)
 
@@ -460,7 +505,7 @@ Calculates the kinetic enery spectrum for wavefunction ``\\psi``, at the
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function kinetic_density_qper(k,psi::Psi{2})
+function kinetic_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient_qper(psi)
 	cx = auto_correlate(ψx,X,K)
@@ -469,7 +514,7 @@ function kinetic_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function kinetic_density_qper(k,psi::Psi{3})
+function kinetic_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient_qper(psi)
 	cx = auto_correlate(ψx,X,K)
@@ -492,6 +537,18 @@ function kdensity(k,psi::Psi{2})
 end
 
 function kdensity(k,psi::Psi{3})  
+    @unpack ψ,X,K = psi; 
+	C = auto_correlate(ψ,X,K)
+    return sinc_reduce(k,X...,C)
+end
+
+function kdensity(k,psi::Psi_qper2{2})  
+    @unpack ψ,X,K = psi; 
+	C = auto_correlate(ψ,X,K)
+    return bessel_reduce(k,X...,C)
+end
+
+function kdensity(k,psi::Psi_qper3{3})  
     @unpack ψ,X,K = psi; 
 	C = auto_correlate(ψ,X,K)
     return sinc_reduce(k,X...,C)
@@ -535,7 +592,7 @@ Caculate the velocity correlation spectrum for wavefunction ``\\psi`` without an
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function full_spectrum_qper(k,psi::Psi{2})
+function full_spectrum_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -547,7 +604,7 @@ function full_spectrum_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function full_spectrum_qper(k,psi::Psi{3})
+function full_spectrum_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -602,7 +659,7 @@ Caculate the incompressible velocity correlation spectrum for wavefunction ``\\p
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function incompressible_spectrum_qper(k,psi::Psi{2})
+function incompressible_spectrum_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -616,7 +673,7 @@ function incompressible_spectrum_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_spectrum_qper(k,psi::Psi{3})
+function incompressible_spectrum_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -673,7 +730,7 @@ Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function compressible_spectrum_qper(k,psi::Psi{2})
+function compressible_spectrum_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -687,7 +744,7 @@ function compressible_spectrum_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_spectrum_qper(k,psi::Psi{3})
+function compressible_spectrum_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -720,6 +777,29 @@ function qpressure_spectrum(k,psi::Psi{2})
 end
 
 function qpressure_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K )
+    wx,wy,wz = gradient(psia)
+
+	cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function qpressure_spectrum(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wx,wy = gradient(psia)
+
+	cx = auto_correlate(wx,X,K)
+	cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function qpressure_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K )
     wx,wy,wz = gradient(psia)
@@ -780,7 +860,7 @@ Calculates the kinetic energy density of the incompressible velocity field in th
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function incompressible_density_qper(k,psi::Psi{2})
+function incompressible_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -797,7 +877,7 @@ function incompressible_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_density_qper(k,psi::Psi{3})
+function incompressible_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -865,7 +945,7 @@ Calculates the kinetic energy density of the compressible velocity field in the 
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function compressible_density_qper(k,psi::Psi{2})
+function compressible_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -882,7 +962,7 @@ function compressible_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_density_qper(k,psi::Psi{3})
+function compressible_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -922,6 +1002,36 @@ function qpressure_density(k,psi::Psi{2})
 end
 
 function qpressure_density(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K )
+    rnx,rny,rnz = gradient(psia)
+    U = @. exp(im*angle(ψ))
+    @. rnx *= U # restore phase factors
+    @. rny *= U 
+    @. rnz *= U 
+
+	cx = auto_correlate(rnx,X,K)
+    cy = auto_correlate(rny,X,K)
+    cz = auto_correlate(rnz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function qpressure_density(k,psi::Psi_qper3{2})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K )
+    rnx,rny = gradient(psia)
+    U = @. exp(im*angle(ψ))
+    @. rnx *= U # restore phase factors
+    @. rny *= U 
+
+	cx = auto_correlate(rnx,X,K)
+	cy = auto_correlate(rny,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function qpressure_density(k,psi::Psi_qper2{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K )
     rnx,rny,rnz = gradient(psia)
@@ -998,7 +1108,7 @@ Energy density of the incompressible-compressible interaction in the wavefunctio
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function ic_density_qper(k,psi::Psi{2})
+function ic_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_aper(psi)
     a = abs.(ψ)
@@ -1019,7 +1129,7 @@ function ic_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function ic_density_qper(k,psi::Psi{3})
+function ic_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -1111,7 +1221,7 @@ Energy density of the incompressible-quantum pressure interaction in the wavefun
 points `k`. Arrays `X`, `K` should be computed using `xk_arrays`.
 Uses quasiperiodic boundary conditions.
 """
-function iq_density_qper(k,psi::Psi{2})
+function iq_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -1136,7 +1246,7 @@ function iq_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function iq_density_qper(k,psi::Psi{3})
+function iq_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -1233,7 +1343,7 @@ Energy density of the compressible-quantum pressure interaction in the wavefunct
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
-function cq_density_qper(k,psi::Psi{2})
+function cq_density_qper(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     vx,vy = velocity_qper(psi)
     a = abs.(ψ)
@@ -1258,7 +1368,7 @@ function cq_density_qper(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function cq_density_qper(k,psi::Psi{3})
+function cq_density_qper(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi 
     vx,vy,vz = velocity_qper(psi)
     a = abs.(ψ)
@@ -1331,6 +1441,22 @@ function trap_spectrum(k,V,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function trap_spectrum(k,V,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi; x,y = X
+    f = @. abs(ψ)*sqrt(V(x,y',0.))
+    C = auto_correlate(f,X,K)
+
+    return bessel_reduce(k,X...,C)
+end
+
+function trap_spectrum(k,V,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi; x,y,z = X
+    f = @. abs(ψ)*sqrt(V(x,y',reshape(z,1,1,length(z)),0.))
+    C = auto_correlate(f,X,K)
+
+    return sinc_reduce(k,X...,C)
+end
+
 function density_spectrum(k,psi::Psi{2}) 
     @unpack ψ,X,K = psi 
     n = abs2.(ψ)
@@ -1340,6 +1466,22 @@ function density_spectrum(k,psi::Psi{2})
 end
 
 function density_spectrum(k,psi::Psi{3}) 
+    @unpack ψ,X,K = psi 
+    n = abs2.(ψ)
+    C = auto_correlate(n,X,K) 
+
+    return sinc_reduce(k,X...,C)
+end
+
+function density_spectrum(k,psi::Psi_qper2{2}) 
+    @unpack ψ,X,K = psi 
+    n = abs2.(ψ)
+    C = auto_correlate(n,X,K) 
+
+    return bessel_reduce(k,X...,C)
+end
+
+function density_spectrum(k,psi::Psi_qper3{3}) 
     @unpack ψ,X,K = psi 
     n = abs2.(ψ)
     C = auto_correlate(n,X,K) 
