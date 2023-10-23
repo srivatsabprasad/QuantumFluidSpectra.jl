@@ -549,7 +549,7 @@ end
 	kdensity(k,ψ,X,K)
 
 Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
-points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Arrays `X`, `K` should be computed using `makearrays`.
+points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber.  Arrays `X`, `K` should be computed using `makearrays`.
 """
 function kdensity(k,psi::Psi{2})  
     @unpack ψ,X,K = psi; 
@@ -567,7 +567,7 @@ end
 	kdensity_qper(k,ψ,X,K)
 
 Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
-points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Arrays `X`, `K` should be computed using `makearrays`.
+points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber. Arrays `X`, `K` should be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
 function kdensity_qper(k,psi::Psi_qper2{2})  
@@ -581,6 +581,23 @@ function kdensity_qper(k,psi::Psi_qper3{3})
 	C = auto_correlate(ψ,X,K)
     return sinc_reduce(k,X...,C)
 end
+
+"""
+	wave_action(k,ψ,X,K)
+Calculates the angle integrated wave-action spectrum ``|\\phi(\\mathbf{k})|^2``, at the
+points `k`, without the radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber cubed. Isotropy is not assumed. Arrays `X`, `K` should be computed using `makearrays`.
+"""
+wave_action(k,psi::Psi{2}) = kdensity(k,psi::Psi{2}) ./k 
+wave_action(k,psi::Psi{3}) = kdensity(k,psi::Psi{3})./k^2
+
+"""
+	wave_action_qper(k,ψ,X,K)
+Calculates the angle integrated wave-action spectrum ``|\\phi(\\mathbf{k})|^2``, at the
+points `k`, without the radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber cubed. Isotropy is not assumed. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+wave_action_qper(k,psi::Psi_qper2{2}) = kdensity_qper(k,psi::Psi_qper2{2}) ./k 
+wave_action_qper(k,psi::Psi_qper3{3}) = kdensity_qper(k,psi::Psi_qper3{3})./k^2
 
 """
 	full_spectrum(k,ψ)
