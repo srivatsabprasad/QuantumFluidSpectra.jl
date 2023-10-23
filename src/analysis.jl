@@ -542,13 +542,20 @@ function kdensity(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function kdensity(k,psi::Psi_qper2{2})  
+"""
+	kdensity_qper(k,ψ,X,K)
+
+Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
+points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Arrays `X`, `K` should be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function kdensity_qper(k,psi::Psi_qper2{2})  
     @unpack ψ,X,K = psi; 
 	C = auto_correlate(ψ,X,K)
     return bessel_reduce(k,X...,C)
 end
 
-function kdensity(k,psi::Psi_qper3{3})  
+function kdensity_qper(k,psi::Psi_qper3{3})  
     @unpack ψ,X,K = psi; 
 	C = auto_correlate(ψ,X,K)
     return sinc_reduce(k,X...,C)
@@ -613,6 +620,61 @@ function full_spectrum_qper(k,psi::Psi_qper3{3})
     cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	full_current_spectrum(k,ψ)
+
+Caculate the current correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+function full_current_spectrum(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    jx,jy = current(psi,Ω)
+
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_current_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    jx,jy,jz = current(psi)
+
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	full_current_spectrum_qper(k,ψ)
+
+Caculate the current correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
+Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function full_current_spectrum_qper(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi;  
+    jx,jy = current_qper(psi)
+
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_current_spectrum_qper(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi; 
+    jx,jy,jz = current_qper(psi)
+
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -689,6 +751,69 @@ function incompressible_spectrum_qper(k,psi::Psi_qper3{3})
 end
 
 """
+	incompressible_spectrum(k,ψ)
+
+Caculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    jx,jy = current(psi,Ω)
+    Ji, _ = helmholtz(jx,jy,K...)
+    jx,jy = Ji
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_current_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    jx,jy,jz = current(psi)
+    Ji, _ = helmholtz(jx,jy,jz,K...)
+    jx,jy,jz = Ji
+
+	cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	incompressible_current_spectrum_qper(k,ψ)
+
+Caculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function incompressible_current_spectrum_qper(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi;  
+    jx,jy = current_qper(psi)
+    Ji, _ = helmholtz(jx,jy,K...)
+    jx,jy = Ji
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_current_spectrum_qper(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi; 
+    jx,jy,jz = current_qper(psi)
+    Ji, _ = helmholtz(jx,jy,jz,K...)
+    jx,jy,jz = Ji
+
+	cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
 	compressible_spectrum(k,ψ,X,K)
 
 Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
@@ -755,6 +880,69 @@ function compressible_spectrum_qper(k,psi::Psi_qper3{3})
 	cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	compressible_current_spectrum(k,ψ,X,K)
+
+Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+function compressible_current_spectrum(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    jx,jy = current(psi)
+    _, Jc = helmholtz(jx,jy,K...)
+    jx,jy = Jc
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_current_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current(psi)
+    _, Jc = helmholtz(jx,jy,jz,K...)
+    jx,jy,jz = Jc
+
+	cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+"""
+	compressible_spectrum_qper(k,ψ,X,K)
+
+Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+Uses quasiperiodic boundary conditions.
+"""
+function compressible_current_spectrum_qper(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi 
+    jx,jy = current_qper(psi)
+    _, Jc = helmholtz(jx,jy,K...)
+    jx,jy = Jc
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_current_spectrum_qper(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current_qper(psi)
+    _, Jc = helmholtz(jx,jy,jz,K...)
+    jx,jy,jz = Jc
+
+	cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
+    cz = auto_correlate(jz,X,K)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
