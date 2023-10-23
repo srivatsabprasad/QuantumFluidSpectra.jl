@@ -751,7 +751,7 @@ function incompressible_spectrum_qper(k,psi::Psi_qper3{3})
 end
 
 """
-	incompressible_spectrum(k,ψ)
+	incompressible_current_spectrum(k,ψ)
 
 Caculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
@@ -816,7 +816,7 @@ end
 """
 	compressible_spectrum(k,ψ,X,K)
 
-Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Caculate the compressible kinetic energy spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function compressible_spectrum(k,psi::Psi{2})
@@ -851,7 +851,7 @@ end
 """
 	compressible_spectrum_qper(k,ψ,X,K)
 
-Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Caculate the compressible kinetic energy spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
@@ -887,7 +887,7 @@ end
 """
 	compressible_current_spectrum(k,ψ,X,K)
 
-Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Caculate the compressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function compressible_current_spectrum(k,psi::Psi{2})
@@ -916,9 +916,9 @@ function compressible_current_spectrum(k,psi::Psi{3})
 end
 
 """
-	compressible_spectrum_qper(k,ψ,X,K)
+	compressible_current_spectrum_qper(k,ψ,X,K)
 
-Caculate the compressible kinetic enery spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Caculate the compressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
