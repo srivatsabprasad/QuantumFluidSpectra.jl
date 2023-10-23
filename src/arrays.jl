@@ -143,3 +143,23 @@ function fft_differentials(X,K)
     end
     return DX,DK
 end
+
+"""
+    P = fft_planner(X,K)
+
+Evalutes tuple of planners for FFTs for dimensions 1, 2, 3, relevant for periodic boundary conditions.
+"""
+function fft_planner(X,K)
+    M = length(X)
+    if M == 1
+        planstate[i,j,k] = exp.(im*K[1][2]*X[1]);
+    elseif M == 2
+        @tullio planstate[i,j] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j];
+    elseif M == 3
+        @tullio planstate[i,j,k] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j]*exp.(im*K[3][2]*X[3])[k];
+    end
+    Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.MEASURE);
+    Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.MEASURE);
+    return (Pall, Pbig)
+end
+
