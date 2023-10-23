@@ -6,11 +6,11 @@ Create `x` values with periodicity for box specified by length `λ`, using `N` p
 xvec(L,N) = LinRange(-L/2,L/2,N+1)[2:end] |> collect
 
 """
-    x = xvecalt(λ,N)
+    x = xvec0(λ,N)
 
 Create `x` values with periodicity for box specified by length `λ`, using `N` points. Range from 0 to L-L/N.
 """
-xvecalt(L,N) = LinRange(0,L,N+1)[1:end-1] |> collect
+xvec0(L,N) = LinRange(0,L,N+1)[1:end-1] |> collect
 
 """
     k = kvec(L,N)
@@ -35,14 +35,14 @@ function xvecs(L,N)
 end
 
 """
-    X = xvecsalt(L,N)
+    X = xvecs0(L,N)
 
-Create a tuple containing the spatial coordinate array for each spatial dimension using xvecalt instead of xvec.
+Create a tuple containing the spatial coordinate array for each spatial dimension using xvec0 instead of xvec.
 """
-function xvecsalt(L,N)
+function xvecs0(L,N)
     X = []
     for (λ,ν) in zip(L,N)
-        x = xvecalt(λ,ν)
+        x = xvec0(λ,ν)
         push!(X,x)
     end
     return X |> Tuple
@@ -95,14 +95,14 @@ function xk_arrays(L,N)
 end
 
 """
-    X,K,dX,dK = xk_arraysalt(L,N)
+    X,K,dX,dK = xk_arrays0(L,N)
 
-Create all `x` and `k` arrays for box specified by tuples `L=(Lx,...)` and `N=(Nx,...)` using xvecsalt rather than xvecs.
+Create all `x` and `k` arrays for box specified by tuples `L=(Lx,...)` and `N=(Nx,...)` using xvecs0 rather than xvecs.
 For convenience, differentials `dX`, `dK` are also reaturned. `L` and `N` must be tuples of equal length.
 """
-function xk_arraysalt(L,N)
+function xk_arrays0(L,N)
     @assert length(L) == length(N)
-    X = xvecsalt(L,N)
+    X = xvecs0(L,N)
     K = kvecs(L,N)
     dX = Float64[]; dK = Float64[]
     for j ∈ eachindex(X)
