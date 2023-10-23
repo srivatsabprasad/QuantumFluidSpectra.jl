@@ -454,6 +454,27 @@ function sinc_reduce(k,x,y,z,C)
     return E 
 end
 
+function sinc_reduce_alt(k,x,y,z,C)
+    dx,dy,dz = x[2]-x[1],y[2]-y[1],z[2]-z[1]
+    Nx,Ny,Nz = 2*length(x),2*length(y),2*length(z)
+    Lx = x[end] - x[begin] + dx
+    Ly = y[end] - y[begin] + dy
+    Lz = z[end] - z[begin] + dz
+    xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
+    yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
+    zr = LinRange(-Lz,Lz,Nz+1)[1:Nz]
+    E = zero(k)
+    hyp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(length(zr),1,1),[3 2 1]).^2)
+    El = similar(hyp)
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hyp, C) do b, H, D
+	    b[] = real(π*sinc(k[i]*H/π)*D)
+	end
+	E[i] = @fastmath sum(El)*k[i]^2*dx*dy*dz/2/pi^2
+    end
+    return E 
+end
+
 """
 	kinetic_density(k,ψ,X,K)
 
@@ -712,6 +733,21 @@ function incompressible_spectrum(k,psi::Psi{3})
     cz = auto_correlate(wz,X,K)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
+end
+
+function incompressible_spectrum_alt(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, _ = helmholtz(wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
+    cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce_alt(k,X...,C)
 end
 
 """
