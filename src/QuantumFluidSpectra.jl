@@ -7,6 +7,7 @@ using PaddedViews
 using UnPack
 using TensorCast
 using ThreadsX
+using Referenceables
 
 # fallback since fast_hypot is 2 argument only
 @fastmath hypot(x::Float64, y::Float64, z::Float64)=sqrt(x^2+y^2+z^2)
