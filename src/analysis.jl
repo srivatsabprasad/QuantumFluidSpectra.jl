@@ -28,6 +28,30 @@ function gradient(psi::Psi{3})
 	return ψx,ψy,ψz
 end
 
+function gradient(psi::Psi_plan{1})
+	@unpack ψ,K,P = psi; kx = K[1] 
+    	ϕ = P[1]*ψ
+	ψx = inv(P[1])*(im*kx.*ϕ)
+    return ψx
+end
+
+function gradient(psi::Psi_plan{2})
+	@unpack ψ,K,P = psi; kx,ky = K 
+	ϕ = P[1]*ψ
+	ψx = inv(P[1])*(im*kx.*ϕ)
+	ψy = inv(P[1])*(im*ky'.*ϕ)
+	return ψx,ψy
+end
+
+function gradient(psi::Psi_plan{3})
+	@unpack ψ,K,P = psi; kx,ky,kz = K 
+	ϕ = P[1]*ψ
+	ψx = inv(P[1])*(im*kx.*ϕ)
+	ψy = inv(P[1])*(im*ky'.*ϕ)
+	ψz = inv(P[1])*(im*reshape(kz,1,1,length(kz)).*ϕ)
+	return ψx,ψy,ψz
+end
+
 """
 	gradient_qper(psi::Psi{D})
 
@@ -90,6 +114,31 @@ function current(psi::Psi{3})
 	return jx,jy,jz
 end
 
+function current(psi::Psi_plan{1})
+	@unpack ψ = psi 
+	ψx = gradient(psi)
+	jx = @. imag(conj(ψ)*ψx)
+    return jx
+end
+
+function current(psi::Psi_plan{2},Ω = 0)
+	@unpack ψ,X = psi 
+    	x,y = X
+    	ψx,ψy = gradient(psi)
+	jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
+	jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
+	return jx,jy
+end
+
+function current(psi::Psi_plan{3})
+    	@unpack ψ = psi 
+    	ψx,ψy,ψz = gradient(psi)
+	jx = @. imag(conj(ψ)*ψx)
+	jy = @. imag(conj(ψ)*ψy)
+	jz = @. imag(conj(ψ)*ψz)
+	return jx,jy,jz
+end
+
 """
 	current_qper(psi::Psi{D})
 
@@ -141,6 +190,39 @@ function velocity(psi::Psi{2},Ω = 0)
 end
 
 function velocity(psi::Psi{3})
+	@unpack ψ = psi
+	rho = abs2.(ψ)
+    	ψx,ψy,ψz = gradient(psi)
+	vx = @. imag(conj(ψ)*ψx)/rho
+	vy = @. imag(conj(ψ)*ψy)/rho
+	vz = @. imag(conj(ψ)*ψz)/rho
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+    	@. vz[isnan(vz)] = zero(vz[1])
+	return vx,vy,vz
+end
+
+function velocity(psi::Psi_plan{1})
+	@unpack ψ = psi
+    	ψx = gradient(psi)
+	vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
+    	@. vx[isnan(vx)] = zero(vx[1])
+	return vx
+end
+
+function velocity(psi::Psi_plan{2},Ω = 0)
+	@unpack ψ,X = psi
+    	x,y = X
+    	ψx,ψy = gradient(psi)
+    	rho = abs2.(ψ)
+	vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
+	vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+	return vx,vy
+end
+
+function velocity(psi::Psi_plan{3})
 	@unpack ψ = psi
 	rho = abs2.(ψ)
     	ψx,ψy,ψz = gradient(psi)
@@ -221,6 +303,36 @@ function helmholtz(wx, wy, wz, kx, ky, kz)
     return Wi, Wc
 end
 
+function helmholtz(Pall, wx, wy, kx, ky)
+    wxk = Pall*wx; wyk = Pall*wy
+    @cast kw[i,j] := (kx[i] * wxk[i,j] + ky[j] * wyk[i,j])/ (kx[i]^2+ky[j]^2)
+    @cast wxkc[i,j] := kw[i,j] * kx[i] 
+    @cast wykc[i,j] := kw[i,j] * ky[j]
+    wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1])
+    wxki = @. wxk - wxkc
+    wyki = @. wyk - wykc
+    wxc = inv(Pall)*(wxkc); wyc = inv(Pall)*wykc
+  	wxi = inv(Pall)*wxki; wyi = inv(Pall)*wyki
+  	Wi = (wxi, wyi); Wc = (wxc, wyc)
+    return Wi, Wc
+end
+
+function helmholtz(Pall, wx, wy, wz, kx, ky, kz)
+    wxk = Pall*wx; wyk = Pall*wy; wzk = Pall*wz
+    @cast kw[i,j,k] := (kx[i] * wxk[i,j,k] + ky[j] * wyk[i,j,k] + kz[k] * wzk[i,j,k])/ (kx[i]^2 + ky[j]^2 + kz[k]^2)
+    @cast wxkc[i,j,k] := kw[i,j,k] * kx[i]  
+    @cast wykc[i,j,k] := kw[i,j,k] * ky[j] 
+    @cast wzkc[i,j,k] := kw[i,j,k] * kz[k]  
+    wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1]); wzkc[1] = zero(wzkc[1])
+    wxki = @. wxk - wxkc
+    wyki = @. wyk - wykc
+    wzki = @. wzk - wzkc
+    wxc = inv(Pall)*(wxkc); wyc = inv(Pall)*wykc; wzc = inv(Pall)*wzkc
+    wxi = inv(Pall)*(wxki); wyi = inv(Pall)*wyki; wzi = inv(Pall)*wzki
+  	Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
+    return Wi, Wc
+end
+
 # function helmholtz(W::NTuple{N,Array{Float64,N}}, psi::Psi{N}) where N
 #     return helmholtz(W..., psi)
 # end
@@ -250,6 +362,32 @@ function energydecomp(psi::Psi{3})
     vx,vy,vz = velocity(psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
     Wi, Wc = helmholtz(wx,wy,wz,kx,ky,kz)
+    wxi, wyi, wzi = Wi; wxc, wyc, wzc = Wc
+    et = @. abs2(wx) + abs2(wy) + abs2(wz); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi) + abs2(wzi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc) + abs2(wzc); ec *= 0.5
+    return et, ei, ec
+end
+
+function energydecomp(psi::Psi_plan{2})
+    @unpack ψ,K,P = psi; kx,ky = K
+    a = abs.(ψ)
+    vx, vy = velocity(psi)
+    wx = @. a*vx; wy = @. a*vy
+    Wi, Wc = helmholtz(P[1],wx,wy,kx,ky)
+    wxi, wyi = Wi; wxc, wyc = Wc
+    et = @. abs2(wx) + abs2(wy); et *= 0.5
+    ei = @. abs2(wxi) + abs2(wyi); ei *= 0.5
+    ec = @. abs2(wxc) + abs2(wyc); ec *= 0.5
+    return et, ei, ec
+end
+
+function energydecomp(psi::Psi_plan{3})
+	@unpack ψ,K,P = psi; kx,ky,kz = K
+    a = abs.(ψ)
+    vx,vy,vz = velocity(psi)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, Wc = helmholtz(P[1],wx,wy,wz,kx,ky,kz)
     wxi, wyi, wzi = Wi; wxc, wyc, wzc = Wc
     et = @. abs2(wx) + abs2(wy) + abs2(wz); et *= 0.5
     ei = @. abs2(wxi) + abs2(wyi) + abs2(wzi); ei *= 0.5
@@ -375,6 +513,17 @@ function convolve(ψ1,ψ2,X,K)
 	return ifft(χ1.*χ2)*prod(DK)*(2*pi)^(n/2) |> fftshift
 end
 
+function convolve(ψ1,ψ2,X,K,Pbig)
+    n = length(X)
+    DX,DK = fft_differentials(X,K)
+	ϕ1 = zeropad(conj.(ψ1))
+    ϕ2 = zeropad(ψ2)
+
+	χ1 = (Pbig*ϕ1)*prod(DX)
+	χ2 = (Pbig*ϕ2)*prod(DX)
+	return (inv(Pbig)*(χ1.*χ2))*prod(DK)*(2*pi)^(n/2) |> fftshift
+end
+
 @doc raw"""
 	auto_correlate(ψ,X,K)
 
@@ -399,6 +548,16 @@ function auto_correlate(ψ,X,K)
 end
 
 auto_correlate(psi::Psi{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K)
+
+function auto_correlate(ψ,X,K,P)
+    n = length(X)
+    DX,DK = fft_differentials(X,K)
+    ϕ = zeropad(ψ)
+	χ = (P[2]*ϕ)*prod(DX)
+	return (inv(P[2])*abs2.(χ))*prod(DK)*(2*pi)^(n/2) |> fftshift
+end
+
+auto_correlate(psi::Psi_plan{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K,psi.P)
 
 @doc raw"""
 	cross_correlate(ψ,X,K)
@@ -425,6 +584,17 @@ function cross_correlate(ψ1,ψ2,X,K)
 	return ifft(conj(χ1).*χ2)*prod(DK)*(2*pi)^(n/2) |> fftshift
 end
 cross_correlate(psi1::Psi{D},psi2::Psi{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K)
+
+function cross_correlate(ψ1,ψ2,X,K,P)
+    n = length(X)
+    DX,DK = fft_differentials(X,K)
+    ϕ1 = zeropad(ψ1)
+    ϕ2 = zeropad(ψ2)
+	χ1 = (P*ϕ1)*prod(DX)
+    χ2 = (P*ϕ2)*prod(DX)
+	return (inv(Pbig)*(conj(χ1).*χ2))*prod(DK)*(2*pi)^(n/2) |> fftshift
+end
+cross_correlate(psi1::Psi_plan{D},psi2::Psi_plan{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K,psi1.P)
 
 function bessel_reduce(k,x,y,C)
     dx,dy = x[2]-x[1],y[2]-y[1]
@@ -464,7 +634,7 @@ function sinc_reduce_alt(k,x,y,z,C)
     yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz]
     E = zero(k)
-    hyp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(length(zr),1,1),[3 2 1]).^2)
+    hyp = sqrt.(xp.^2 .+ yq'.^2 .+ reshape(zr,1,1,length(zr)).^2)
     El = similar(hyp)
     for i in eachindex(k)
 	ThreadsX.foreach(referenceable(El), hyp, C) do b, H, D
@@ -496,6 +666,25 @@ function kinetic_density(k,psi::Psi{3})
 	cx = auto_correlate(ψx,X,K)
     cy = auto_correlate(ψy,X,K)
     cz = auto_correlate(ψz,X,K)
+    C = @. 0.5(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function kinetic_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi; 
+    ψx,ψy = gradient(psi)
+	cx = auto_correlate(ψx,X,K,P)
+	cy = auto_correlate(ψy,X,K,P)
+    C = @. 0.5(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function kinetic_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi;  
+    ψx,ψy,ψz = gradient(psi)
+	cx = auto_correlate(ψx,X,K,P)
+    cy = auto_correlate(ψy,X,K,P)
+    cz = auto_correlate(ψz,X,K,P)
     C = @. 0.5(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -563,6 +752,19 @@ function kdensity(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function kdensity(k,psi::Psi_plan{2})  
+    @unpack ψ,X,K,P = psi; 
+	C = auto_correlate(ψ,X,K,P)
+    return bessel_reduce(k,X...,C)
+end
+
+function kdensity(k,psi::Psi_plan{3})  
+    @unpack ψ,X,K,P = psi; 
+	C = auto_correlate(ψ,X,K,P)
+    return sinc_reduce(k,X...,C)
+end
+
+
 """
 	kdensity_qper(k,ψ,X,K)
 
@@ -589,6 +791,8 @@ points `k`, without the radial weight in `k` space ensuring normalization under 
 """
 wave_action(k,psi::Psi{2}) = kdensity(k,psi::Psi{2}) ./k 
 wave_action(k,psi::Psi{3}) = kdensity(k,psi::Psi{3})./k^2
+wave_action(k,psi::Psi_plan{2}) = kdensity(k,psi::Psi_plan{2}) ./k 
+wave_action(k,psi::Psi_plan{3}) = kdensity(k,psi::Psi_plan{3})./k^2
 
 """
 	wave_action_qper(k,ψ,X,K)
@@ -626,6 +830,31 @@ function full_spectrum(k,psi::Psi{3})
     cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function full_spectrum(k,psi::Psi_plan{2},Ω=0.0)
+    @unpack ψ,X,K,P = psi;  
+    vx,vy = velocity(psi,Ω)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+
+    cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+
+    cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    cz = auto_correlate(wz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -685,6 +914,27 @@ function full_current_spectrum(k,psi::Psi{3})
     cx = auto_correlate(jx,X,K)
     cy = auto_correlate(jy,X,K)
     cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function full_current_spectrum(k,psi::Psi_plan{2},Ω=0.0)
+    @unpack ψ,X,K,P = psi;  
+    jx,jy = current(psi,Ω)
+
+    cx = auto_correlate(jx,X,K,P)
+    cy = auto_correlate(jy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_current_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; 
+    jx,jy,jz = current(psi)
+
+    cx = auto_correlate(jx,X,K,P)
+    cy = auto_correlate(jy,X,K,P)
+    cz = auto_correlate(jz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -752,6 +1002,35 @@ function incompressible_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function incompressible_spectrum(k,psi::Psi_plan{2},Ω=0.0)
+    @unpack ψ,X,K,P = psi;  
+    vx,vy = velocity(psi,Ω)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+    Wi, _ = helmholtz(P[1],wx,wy,K...)
+    wx,wy = Wi
+
+	cx = auto_correlate(wx,X,K,P)
+	cy = auto_correlate(wy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    cz = auto_correlate(wz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
 function incompressible_spectrum_alt(k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
     vx,vy,vz = velocity(psi)
@@ -767,10 +1046,25 @@ function incompressible_spectrum_alt(k,psi::Psi{3})
     return sinc_reduce_alt(k,X...,C)
 end
 
+function incompressible_spectrum_alt(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    cz = auto_correlate(wz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce_alt(k,X...,C)
+end
+
 """
 	incompressible_spectrum_qper(k,ψ)
 
-Caculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Calculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 Uses quasiperiodic boundary conditions.
 """
@@ -806,7 +1100,7 @@ end
 """
 	incompressible_current_spectrum(k,ψ)
 
-Caculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
+Calculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
 Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
@@ -830,6 +1124,31 @@ function incompressible_current_spectrum(k,psi::Psi{3})
 	cx = auto_correlate(jx,X,K)
     cy = auto_correlate(jy,X,K)
     cz = auto_correlate(jz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function incompressible_current_spectrum(k,psi::Psi_plan{2},Ω=0.0)
+    @unpack ψ,X,K,P = psi;  
+    jx,jy = current(psi,Ω)
+    Ji, _ = helmholtz(P[1],jx,jy,K...)
+    jx,jy = Ji
+
+	cx = auto_correlate(jx,X,K,P)
+	cy = auto_correlate(jy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_current_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; 
+    jx,jy,jz = current(psi)
+    Ji, _ = helmholtz(P[1],jx,jy,jz,K...)
+    jx,jy,jz = Ji
+
+	cx = auto_correlate(jx,X,K,P)
+    cy = auto_correlate(jy,X,K,P)
+    cz = auto_correlate(jz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -901,6 +1220,35 @@ function compressible_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function compressible_spectrum(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy
+    _, Wc = helmholtz(P[1],wx,wy,K...)
+    wx,wy = Wc
+
+	cx = auto_correlate(wx,X,K,P)
+	cy = auto_correlate(wy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    _, Wc = helmholtz(P[1],wx,wy,wz,K...)
+    wx,wy,wz = Wc
+
+	cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    cz = auto_correlate(wz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
 """
 	compressible_spectrum_qper(k,ψ,X,K)
 
@@ -968,6 +1316,31 @@ function compressible_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function compressible_current_spectrum(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    jx,jy = current(psi)
+    _, Jc = helmholtz(P[1],jx,jy,K...)
+    jx,jy = Jc
+
+	cx = auto_correlate(jx,X,K,P)
+	cy = auto_correlate(jy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_current_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi
+    jx,jy,jz = current(psi)
+    _, Jc = helmholtz(P[1],jx,jy,jz,K...)
+    jx,jy,jz = Jc
+
+	cx = auto_correlate(jx,X,K,P)
+    cy = auto_correlate(jy,X,K,P)
+    cz = auto_correlate(jz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
 """
 	compressible_current_spectrum_qper(k,ψ,X,K)
 
@@ -1025,6 +1398,29 @@ function qpressure_spectrum(k,psi::Psi{3})
 	cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function qpressure_spectrum(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wx,wy = gradient(psia)
+
+	cx = auto_correlate(wx,X,K,P)
+	cy = auto_correlate(wy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function qpressure_spectrum(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wx,wy,wz = gradient(psia)
+
+	cx = auto_correlate(wx,X,K,P)
+    cy = auto_correlate(wy,X,K,P)
+    cz = auto_correlate(wz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -1090,6 +1486,42 @@ function incompressible_density(k,psi::Psi{3})
 	cx = auto_correlate(wix,X,K)
     cy = auto_correlate(wiy,X,K)
     cz = auto_correlate(wiz,X,K)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function incompressible_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(P[1],ux,uy,K...)
+    wix,wiy = Wi
+    U = @. exp(im*angle(ψ))
+    @. wix *= U # restore phase factors
+    @. wiy *= U
+
+	cx = auto_correlate(wix,X,K,P)
+	cy = auto_correlate(wiy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function incompressible_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
+    wix,wiy,wiz = Wi
+    U = @. exp(im*angle(ψ))
+    @. wix *= U # restore phase factors
+    @. wiy *= U
+    @. wiz *= U
+
+	cx = auto_correlate(wix,X,K,P)
+    cy = auto_correlate(wiy,X,K,P)
+    cz = auto_correlate(wiz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -1179,6 +1611,42 @@ function compressible_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function compressible_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(P[1],ux,uy,K...)
+    wcx,wcy = Wc
+    U = @. exp(im*angle(ψ))
+    @. wcx *= U # restore phase factors
+    @. wcy *= U
+
+	cx = auto_correlate(wcx,X,K,P)
+	cy = auto_correlate(wcy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function compressible_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
+    wcx,wcy,wcz = Wc
+    U = @. exp(im*angle(ψ))
+    @. wcx *= U # restore phase factors
+    @. wcy *= U
+    @. wcz *= U
+
+	cx = auto_correlate(wcx,X,K,P)
+    cy = auto_correlate(wcy,X,K,P)
+    cz = auto_correlate(wcz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
 """
     compressible_density_qper(k,ψ,X,K)
 
@@ -1258,7 +1726,37 @@ function qpressure_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function qpressure_density(k,psi::Psi_qper3{2})
+function qpressure_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    rnx,rny = gradient(psia)
+    U = @. exp(im*angle(ψ))
+    @. rnx *= U # restore phase factors
+    @. rny *= U 
+
+	cx = auto_correlate(rnx,X,K,P)
+	cy = auto_correlate(rny,X,K,P)
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function qpressure_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    rnx,rny,rnz = gradient(psia)
+    U = @. exp(im*angle(ψ))
+    @. rnx *= U # restore phase factors
+    @. rny *= U 
+    @. rnz *= U 
+
+	cx = auto_correlate(rnx,X,K,P)
+    cy = auto_correlate(rny,X,K,P)
+    cz = auto_correlate(rnz,X,K,P)
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce(k,X...,C)
+end
+
+function qpressure_density(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K )
     rnx,rny = gradient(psia)
@@ -1272,7 +1770,7 @@ function qpressure_density(k,psi::Psi_qper3{2})
     return bessel_reduce(k,X...,C)
 end
 
-function qpressure_density(k,psi::Psi_qper2{3})
+function qpressure_density(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K )
     rnx,rny,rnz = gradient(psia)
@@ -1338,6 +1836,52 @@ function ic_density(k,psi::Psi{3})
     cciy = convolve(wcy,wiy,X,K)
     cicz = convolve(wiz,wcz,X,K) 
     cciz = convolve(wcz,wiz,X,K)
+    C = @. 0.5*(cicx + ccix + cicy + cciy + cicz + cciz)  
+    return sinc_reduce(k,X...,C)
+end
+
+function ic_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(P[1],ux,uy,K...)
+    wix,wiy = Wi; wcx,wcy = Wc
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # restore phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wcx *= im*U 
+    @. wcy *= im*U
+
+    cicx = convolve(wix,wcx,X,K,P[2]) 
+    ccix = convolve(wcx,wix,X,K,P[2])
+    cicy = convolve(wiy,wcy,X,K,P[2]) 
+    cciy = convolve(wcy,wiy,X,K,P[2])
+    C = @. 0.5*(cicx + ccix + cicy + cciy)  
+    return bessel_reduce(k,X...,C)
+end
+
+function ic_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz 
+    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
+    wix,wiy,wiz = Wi; wcx,wcy,wcz = Wc
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # restore phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wiz *= im*U   
+    @. wcx *= im*U 
+    @. wcy *= im*U
+    @. wcz *= im*U
+
+    cicx = convolve(wix,wcx,X,K,P[2]) 
+    ccix = convolve(wcx,wix,X,K,P[2])
+    cicy = convolve(wiy,wcy,X,K,P[2]) 
+    cciy = convolve(wcy,wiy,X,K,P[2])
+    cicz = convolve(wiz,wcz,X,K,P[2]) 
+    cciz = convolve(wcz,wiz,X,K,P[2])
     C = @. 0.5*(cicx + ccix + cicy + cciy + cicz + cciz)  
     return sinc_reduce(k,X...,C)
 end
@@ -1451,6 +1995,60 @@ function iq_density(k,psi::Psi{3})
     cqiy = convolve(wqy,wiy,X,K) 
     ciqz = convolve(wiz,wqz,X,K) 
     cqiz = convolve(wqz,wiz,X,K) 
+    C = @. 0.5*(ciqx + cqix + ciqy + cqiy + ciqz + cqiz) 
+    return sinc_reduce(k,X...,C)
+end
+
+function iq_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(P[1],ux,uy,K...)
+    wix,wiy = Wi 
+
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wqx,wqy = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wqx *= U
+    @. wqy *= U
+
+    ciqx = convolve(wix,wqx,X,K,P[2]) 
+    cqix = convolve(wqx,wix,X,K,P[2]) 
+    ciqy = convolve(wiy,wqy,X,K,P[2]) 
+    cqiy = convolve(wqy,wiy,X,K,P[2]) 
+    C = @. 0.5*(ciqx + cqix + ciqy + cqiy) 
+    return bessel_reduce(k,X...,C)
+end
+
+function iq_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
+    wix,wiy,wiz = Wi
+
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wqx,wqy,wqz = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wix *= im*U # phase factors and make u -> w fields
+    @. wiy *= im*U
+    @. wiz *= im*U
+    @. wqx *= U
+    @. wqy *= U
+    @. wqz *= U
+
+    ciqx = convolve(wix,wqx,X,K,P[2]) 
+    cqix = convolve(wqx,wix,X,K,P[2]) 
+    ciqy = convolve(wiy,wqy,X,K,P[2]) 
+    cqiy = convolve(wqy,wiy,X,K,P[2]) 
+    ciqz = convolve(wiz,wqz,X,K,P[2]) 
+    cqiz = convolve(wqz,wiz,X,K,P[2]) 
     C = @. 0.5*(ciqx + cqix + ciqy + cqiy + ciqz + cqiz) 
     return sinc_reduce(k,X...,C)
 end
@@ -1577,6 +2175,60 @@ function cq_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function cq_density(k,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi 
+    vx,vy = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy 
+    Wi, Wc = helmholtz(P[1],ux,uy,K...)
+    wcx,wcy = Wc 
+
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wqx,wqy = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wcx *= im*U # phase factors and make u -> w fields
+    @. wcy *= im*U
+    @. wqx *= U
+    @. wqy *= U
+
+    ccqx = convolve(wcx,wqx,X,K,P[2]) 
+    cqcx = convolve(wqx,wcx,X,K,P[2]) 
+    ccqy = convolve(wcy,wqy,X,K,P[2]) 
+    cqcy = convolve(wqy,wcy,X,K,P[2]) 
+    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy) 
+    return bessel_reduce(k,X...,C)
+end
+
+function cq_density(k,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi 
+    vx,vy,vz = velocity(psi)
+    a = abs.(ψ)
+    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
+    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
+    wcx,wcy,wcz = Wc  
+
+    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
+    wqx,wqy,wqz = gradient(psia)
+
+    U = @. exp(im*angle(ψ))
+    @. wcx *= im*U # phase factors and make u -> w fields
+    @. wcy *= im*U
+    @. wcz *= im*U
+    @. wqx *= U
+    @. wqy *= U
+    @. wqz *= U
+
+    ccqx = convolve(wcx,wqx,X,K,P[2]) 
+    cqcx = convolve(wqx,wcx,X,K,P[2]) 
+    ccqy = convolve(wcy,wqy,X,K,P[2]) 
+    cqcy = convolve(wqy,wcy,X,K,P[2]) 
+    ccqz = convolve(wcz,wqz,X,K,P[2]) 
+    cqcz = convolve(wqz,wcz,X,K,P[2]) 
+    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy + ccqz + cqcz) 
+    return sinc_reduce(k,X...,C)
+end
+
 """
     cq_density_qper(k,ψ,X,K)
 
@@ -1682,6 +2334,22 @@ function trap_spectrum(k,V,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
+function trap_spectrum(k,V,psi::Psi_plan{2})
+    @unpack ψ,X,K,P = psi; x,y = X
+    f = @. abs(ψ)*sqrt(V(x,y',0.))
+    C = auto_correlate(f,X,K,P)
+
+    return bessel_reduce(k,X...,C)
+end
+
+function trap_spectrum(k,V,psi::Psi_plan{3})
+    @unpack ψ,X,K,P = psi; x,y,z = X
+    f = @. abs(ψ)*sqrt(V(x,y',reshape(z,1,1,length(z)),0.))
+    C = auto_correlate(f,X,K,P)
+
+    return sinc_reduce(k,X...,C)
+end
+
 function trap_spectrum(k,V,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; x,y = X
     f = @. abs(ψ)*sqrt(V(x,y',0.))
@@ -1710,6 +2378,22 @@ function density_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi 
     n = abs2.(ψ)
     C = auto_correlate(n,X,K) 
+
+    return sinc_reduce(k,X...,C)
+end
+
+function density_spectrum(k,psi::Psi_plan{2}) 
+    @unpack ψ,X,K,P = psi 
+    n = abs2.(ψ)
+    C = auto_correlate(n,X,K,P) 
+
+    return bessel_reduce(k,X...,C)
+end
+
+function density_spectrum(k,psi::Psi_plan{3}) 
+    @unpack ψ,X,K,P = psi 
+    n = abs2.(ψ)
+    C = auto_correlate(n,X,K,P) 
 
     return sinc_reduce(k,X...,C)
 end
