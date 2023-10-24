@@ -28,6 +28,15 @@ function gradient(psi::Psi{3})
 	return ψx,ψy,ψz
 end
 
+function gradient(Pall, psi::Psi{3})
+	@unpack ψ,K = psi; kx,ky,kz = K 
+	ϕ = Pall*ψ
+	ψx = inv(Pall)*(im*kx.*ϕ)
+	ψy = inv(Pall)*(im*ky'.*ϕ)
+	ψz = inv(Pall)*(im*reshape(kz,1,1,length(kz)).*ϕ)
+	return ψx,ψy,ψz
+end
+
 function gradient(psi::Psi_plan{1})
 	@unpack ψ,K,P = psi; kx = K[1] 
     	ϕ = P[1]*ψ
@@ -114,6 +123,15 @@ function current(psi::Psi{3})
 	return jx,jy,jz
 end
 
+function current(Pall, psi::Psi{3})
+    	@unpack ψ = psi 
+    	ψx,ψy,ψz = gradient(Pall, psi)
+	jx = @. imag(conj(ψ)*ψx)
+	jy = @. imag(conj(ψ)*ψy)
+	jz = @. imag(conj(ψ)*ψz)
+	return jx,jy,jz
+end
+
 function current(psi::Psi_plan{1})
 	@unpack ψ = psi 
 	ψx = gradient(psi)
@@ -193,6 +211,19 @@ function velocity(psi::Psi{3})
 	@unpack ψ = psi
 	rho = abs2.(ψ)
     	ψx,ψy,ψz = gradient(psi)
+	vx = @. imag(conj(ψ)*ψx)/rho
+	vy = @. imag(conj(ψ)*ψy)/rho
+	vz = @. imag(conj(ψ)*ψz)/rho
+    	@. vx[isnan(vx)] = zero(vx[1])
+    	@. vy[isnan(vy)] = zero(vy[1])
+    	@. vz[isnan(vz)] = zero(vz[1])
+	return vx,vy,vz
+end
+
+function velocity(Pall, psi::Psi{3})
+	@unpack ψ = psi
+	rho = abs2.(ψ)
+    	ψx,ψy,ψz = gradient(Pall, psi)
 	vx = @. imag(conj(ψ)*ψx)/rho
 	vy = @. imag(conj(ψ)*ψy)/rho
 	vz = @. imag(conj(ψ)*ψz)/rho
@@ -549,15 +580,15 @@ end
 
 auto_correlate(psi::Psi{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K)
 
-function auto_correlate(ψ,X,K,P)
+function auto_correlate(ψ,X,K,Pbig)
     n = length(X)
     DX,DK = fft_differentials(X,K)
     ϕ = zeropad(ψ)
-	χ = (P[2]*ϕ)*prod(DX)
-	return (inv(P[2])*abs2.(χ))*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ = (Pbig*ϕ)*prod(DX)
+	return (inv(Pbig)*abs2.(χ))*prod(DK)*(2*pi)^(n/2) |> fftshift
 end
 
-auto_correlate(psi::Psi_plan{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K,psi.P)
+auto_correlate(Pbig, psi::Psi{D}) where D = auto_correlate(Pbig, psi.ψ,psi.X,psi.K)
 
 @doc raw"""
 	cross_correlate(ψ,X,K)
@@ -1046,17 +1077,17 @@ function incompressible_spectrum_alt(k,psi::Psi{3})
     return sinc_reduce_alt(k,X...,C)
 end
 
-function incompressible_spectrum_alt(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; 
-    vx,vy,vz = velocity(psi)
+function incompressible_spectrum_alt(P,k,psi::Psi_plan{3})
+    @unpack ψ,X,K = psi; 
+    vx,vy,vz = velocity(P[1],psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
     Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    cz = auto_correlate(wz,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])
+    cy = auto_correlate(wy,X,K,P[2])
+    cz = auto_correlate(wz,X,K,P[2])
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce_alt(k,X...,C)
 end
