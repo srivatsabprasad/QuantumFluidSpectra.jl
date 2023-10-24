@@ -1077,7 +1077,7 @@ function incompressible_spectrum_alt(k,psi::Psi{3})
     return sinc_reduce_alt(k,X...,C)
 end
 
-function incompressible_spectrum_alt(P,k,psi::Psi_plan{3})
+function incompressible_spectrum_alt(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
     vx,vy,vz = velocity(P[1],psi)
     a = abs.(ψ)
