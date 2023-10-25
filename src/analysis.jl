@@ -1324,8 +1324,8 @@ function compressible_current_spectrum(k,psi::Psi{2})
     _, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K,P)
-	cy = auto_correlate(jy,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])
+	cy = auto_correlate(jy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1462,26 +1462,26 @@ Caculate both the incompressible and compressible current correlation spectra fo
 Input arrays `X`, `K` must be computed using `makearrays`.
 """
 
-function decomposed_current_spectra(k,psi::Psi{2})
+function decomposed_current_spectra(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
     jx,jy = current(P[1],psi)
     Ji, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K,P)
-	cy = auto_correlate(jy,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])
+	cy = auto_correlate(jy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     jci = bessel_reduce(k,X...,C)
 	jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K,P)
-	cy = auto_correlate(jy,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])
+	cy = auto_correlate(jy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     jcc = bessel_reduce(k,X...,C)
 	return jci, jcc
 end
 
-function decomposed_current_spectra(k,psi::Psi{3})
+function decomposed_current_spectra(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     jx,jy,jz = current(P[1],psi)
     Ji, Jc = helmholtz(P[1],jx,jy,jz,K...)
