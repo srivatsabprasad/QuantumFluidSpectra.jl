@@ -651,24 +651,24 @@ using FFTW.
 """
 function convolve(ψ1,ψ2,X,K)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
 	ϕ1 = zeropad(conj.(ψ1))
     ϕ2 = zeropad(ψ2)
 
-	χ1 = fft(ϕ1)*prod(DX)
-	χ2 = fft(ϕ2)*prod(DX)
-	return ifft(χ1.*χ2)*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ1 = fft(ϕ1)
+	χ2 = fft(ϕ2)
+	return ifft(χ1.*χ2)*DΣ |> fftshift
 end
 
 function convolve(ψ1,ψ2,X,K,Pbig)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
 	ϕ1 = zeropad(conj.(ψ1))
     ϕ2 = zeropad(ψ2)
 
-	χ1 = (Pbig*ϕ1)*prod(DX)
-	χ2 = (Pbig*ϕ2)*prod(DX)
-	return (inv(Pbig)*(χ1.*χ2))*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ1 = (Pbig*ϕ1)
+	χ2 = (Pbig*ϕ2)
+	return (inv(Pbig)*(χ1.*χ2))*DΣ |> fftshift
 end
 
 @doc raw"""
@@ -688,20 +688,20 @@ This method is useful for evaluating spectra from cartesian data.
 """
 function auto_correlate(ψ,X,K)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
     ϕ = zeropad(ψ)
-	χ = fft(ϕ)*prod(DX)
-	return ifft(abs2.(χ))*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ = fft(ϕ)
+	return ifft(abs2.(χ))*DΣ |> fftshift
 end
 
 auto_correlate(psi::Psi{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K)
 
 function auto_correlate(ψ,X,K,Pbig)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
     ϕ = zeropad(ψ)
-	χ = (Pbig*ϕ)*prod(DX)
-	return (inv(Pbig)*abs2.(χ))*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ = (Pbig*ϕ)
+	return (inv(Pbig)*abs2.(χ))*DΣ |> fftshift
 end
 
 auto_correlate(Pbig, psi::Psi{D}) where D = auto_correlate(Pbig, psi.ψ,psi.X,psi.K)
@@ -723,23 +723,23 @@ This method is useful for evaluating spectra from cartesian data.
 """
 function cross_correlate(ψ1,ψ2,X,K)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
     ϕ1 = zeropad(ψ1)
     ϕ2 = zeropad(ψ2)
-	χ1 = fft(ϕ1)*prod(DX)
-    χ2 = fft(ϕ2)*prod(DX)
-	return ifft(conj(χ1).*χ2)*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ1 = fft(ϕ1)
+    χ2 = fft(ϕ2)
+	return ifft(conj(χ1).*χ2)*DΣ |> fftshift
 end
 cross_correlate(psi1::Psi{D},psi2::Psi{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K)
 
 function cross_correlate(ψ1,ψ2,X,K,P)
     n = length(X)
-    DX,DK = fft_differentials(X,K)
+    DΣ = correlation_measure(X,K)
     ϕ1 = zeropad(ψ1)
     ϕ2 = zeropad(ψ2)
-	χ1 = (P*ϕ1)*prod(DX)
-    χ2 = (P*ϕ2)*prod(DX)
-	return (inv(Pbig)*(conj(χ1).*χ2))*prod(DK)*(2*pi)^(n/2) |> fftshift
+	χ1 = (P*ϕ1)
+    χ2 = (P*ϕ2)
+	return (inv(Pbig)*(conj(χ1).*χ2))*DΣ |> fftshift
 end
 cross_correlate(psi1::Psi_plan{D},psi2::Psi_plan{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K,psi1.P)
 
