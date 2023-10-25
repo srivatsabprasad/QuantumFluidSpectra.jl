@@ -337,13 +337,13 @@ end
 function helmholtz(Pall, wx, wy, kx, ky)
     wxk = Pall*wx; wyk = Pall*wy
     @cast kw[i,j] := (kx[i] * wxk[i,j] + ky[j] * wyk[i,j])/ (kx[i]^2+ky[j]^2)
-    @cast wxkc[i,j] := kw[i,j] * kx[i] 
-    @cast wykc[i,j] := kw[i,j] * ky[j]
-    wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1])
-    wxki = @. wxk - wxkc
-    wyki = @. wyk - wykc
-    wxc = inv(Pall)*(wxkc); wyc = inv(Pall)*wykc
-  	wxi = inv(Pall)*wxki; wyi = inv(Pall)*wyki
+    @cast dumx[i,j] := kw[i,j] * kx[i] 
+    @cast dumy[i,j] := kw[i,j] * ky[j]
+    dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1])
+	wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy;
+	wxk -= dumx
+	wyk -= dumy
+    wxi = inv(Pall)*(wxk); wyi = inv(Pall)*wyk
   	Wi = (wxi, wyi); Wc = (wxc, wyc)
     return Wi, Wc
 end
@@ -351,16 +351,16 @@ end
 function helmholtz(Pall, wx, wy, wz, kx, ky, kz)
     wxk = Pall*wx; wyk = Pall*wy; wzk = Pall*wz
     @cast kw[i,j,k] := (kx[i] * wxk[i,j,k] + ky[j] * wyk[i,j,k] + kz[k] * wzk[i,j,k])/ (kx[i]^2 + ky[j]^2 + kz[k]^2)
-    @cast wxkc[i,j,k] := kw[i,j,k] * kx[i]  
-    @cast wykc[i,j,k] := kw[i,j,k] * ky[j] 
-    @cast wzkc[i,j,k] := kw[i,j,k] * kz[k]  
-    wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1]); wzkc[1] = zero(wzkc[1])
-    wxki = @. wxk - wxkc
-    wyki = @. wyk - wykc
-    wzki = @. wzk - wzkc
-    wxc = inv(Pall)*(wxkc); wyc = inv(Pall)*wykc; wzc = inv(Pall)*wzkc
-    wxi = inv(Pall)*(wxki); wyi = inv(Pall)*wyki; wzi = inv(Pall)*wzki
-  	Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
+    @cast dumx[i,j,k] := kw[i,j,k] * kx[i]  
+    @cast dumy[i,j,k] := kw[i,j,k] * ky[j] 
+    @cast dumz[i,j,k] := kw[i,j,k] * kz[k]  
+    dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1]); dumz[1] = zero(dumz[1])
+    wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy; wzc = inv(Pall)*dumz
+	wxk -= dumx
+        wyk -= dumy
+	wzk -= dumz
+    wxi = inv(Pall)*wxk; wyi = inv(Pall)*wyk; wzi = inv(Pall)*wzk
+	Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
     return Wi, Wc
 end
 
