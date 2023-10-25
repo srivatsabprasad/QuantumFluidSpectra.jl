@@ -54,7 +54,7 @@ export bessel_reduce, sinc_reduce, gv, gv3, sinc_reduce_alt
 export log10range, convolve
 
 export xk_arrays, xk_arrays0, fft_differentials, fft_planner
-export gradient, gradient_qper, velocity, velocity_qper, current, current_qper
+export gradient, gradient_qper, velocity, velocity_qper, weightedvelocity, weightedvelocity_qper, current, current_qper
 export energydecomp, energydecomp_qper, helmholtz, kinetic_density, kinetic_density_qper, full_spectrum, full_spectrum_qper, full_current_spectrum, full_current_spectrum_qper
 export incompressible_spectrum, incompressible_spectrum_qper, compressible_spectrum, compressible_spectrum_qper, qpressure_spectrum, incompressible_spectrum_alt
 export incompressible_current_spectrum, incompressible_current_spectrum_qper, compressible_current_spectrum, compressible_current_spectrum_qper
