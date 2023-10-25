@@ -1585,7 +1585,7 @@ end
 function qpressure_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K)
-    wx,wy,wz = gradient(P[1].psia)
+    wx,wy,wz = gradient(P[1],psia)
 
 	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
