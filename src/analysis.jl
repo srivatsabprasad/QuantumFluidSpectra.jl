@@ -1591,7 +1591,7 @@ function qpressure_spectrum(P,k,psi::Psi{3})
     cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 function qpressure_spectrum(k,psi::Psi_qper2{2})
