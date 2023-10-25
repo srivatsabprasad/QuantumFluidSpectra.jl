@@ -1152,7 +1152,7 @@ function incompressible_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
+function incompressible_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
     jx,jy = current(psi,Ω)
     Ji, _ = helmholtz(P[1],jx,jy,K...)
@@ -1164,7 +1164,7 @@ function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_current_spectrum(k,psi::Psi{3})
+function incompressible_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
     jx,jy,jz = current(psi)
     Ji, _ = helmholtz(P[1],jx,jy,jz,K...)
@@ -1318,7 +1318,7 @@ function compressible_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function compressible_current_spectrum(k,psi::Psi{2})
+function compressible_current_spectrum(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
     jx,jy = current(P[1],psi)
     _, Jc = helmholtz(P[1],jx,jy,K...)
@@ -1330,7 +1330,7 @@ function compressible_current_spectrum(k,psi::Psi{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_current_spectrum(k,psi::Psi{3})
+function compressible_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     jx,jy,jz = current(P[1],psi)
     _, Jc = helmholtz(P[1],jx,jy,jz,K...)
