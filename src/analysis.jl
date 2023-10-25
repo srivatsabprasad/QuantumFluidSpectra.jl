@@ -29,14 +29,14 @@ function gradient(psi::Psi{3})
 	return ψx,ψy,ψz
 end
 
-function gradient(Pall, psi::Psi_plan{1})
+function gradient(Pall, psi::Psi{1})
 	@unpack ψ,K = psi; kx = K[1] 
     	ϕ = Pall*ψ
 	ψx = inv(Pall)*(im*kx.*ϕ)
     return ψx
 end
 
-function gradient(Pall, psi::Psi_plan{2})
+function gradient(Pall, psi::Psi{2})
 	@unpack ψ,K = psi; kx,ky = K 
 	ϕ = Pall*ψ
 	ψx = inv(Pall)*(im*kx.*ϕ)
@@ -474,10 +474,10 @@ function energydecomp(psi::Psi{3})
     return et, ei, ec
 end
 
-function energydecomp(psi::Psi_plan{2})
-    @unpack ψ,K,P = psi; kx,ky = K
+function energydecomp(P, psi::Psi{2})
+    @unpack ψ,K = psi; kx,ky = K
     a = abs.(ψ)
-    vx, vy = velocity(psi)
+    vx, vy = velocity(P[1],psi)
     wx = @. a*vx; wy = @. a*vy
     Wi, Wc = helmholtz(P[1],wx,wy,kx,ky)
     wxi, wyi = Wi; wxc, wyc = Wc
@@ -487,10 +487,10 @@ function energydecomp(psi::Psi_plan{2})
     return et, ei, ec
 end
 
-function energydecomp(psi::Psi_plan{3})
-	@unpack ψ,K,P = psi; kx,ky,kz = K
+function energydecomp(P, psi::Psi{3})
+	@unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
-    vx,vy,vz = velocity(psi)
+    vx,vy,vz = velocity(P[1],psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
     Wi, Wc = helmholtz(P[1],wx,wy,wz,kx,ky,kz)
     wxi, wyi, wzi = Wi; wxc, wyc, wzc = Wc
@@ -690,7 +690,7 @@ function cross_correlate(ψ1,ψ2,X,K)
 end
 cross_correlate(psi1::Psi{D},psi2::Psi{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K)
 
-function cross_correlate(ψ1,ψ2,X,K,P)
+function cross_correlate(ψ1,ψ2,X,K,Pbig)
     n = length(X)
     DΣ = correlation_measure(X,K)
     ϕ1 = zeropad(ψ1)
@@ -699,7 +699,6 @@ function cross_correlate(ψ1,ψ2,X,K,P)
     χ2 = (P*ϕ2)
 	return (inv(Pbig)*(conj(χ1).*χ2))*DΣ |> fftshift
 end
-cross_correlate(psi1::Psi_plan{D},psi2::Psi_plan{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K,psi1.P)
 
 function bessel_reduce(k,x,y,C)
     dx,dy = x[2]-x[1],y[2]-y[1]
@@ -729,7 +728,7 @@ function sinc_reduce(k,x,y,z,C)
     return E 
 end
 
-function sinc_reduce_alt(k,x,y,z,C)
+function sinc_reduce_real(k,x,y,z,C)
     dx,dy,dz = x[2]-x[1],y[2]-y[1],z[2]-z[1]
     Nx,Ny,Nz = 2*length(x),2*length(y),2*length(z)
     Lx = x[end] - x[begin] + dx
@@ -737,15 +736,39 @@ function sinc_reduce_alt(k,x,y,z,C)
     Lz = z[end] - z[begin] + dz
     xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
     yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
-    zr = LinRange(-Lz,Lz,Nz+1)[1:Nz]
+    zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
     E = zero(k)
-    hyp = sqrt.(xp.^2 .+ yq'.^2 .+ reshape(zr,1,1,length(zr)).^2)
-    El = similar(hyp)
+    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2,1,1),[3 2 1]).^2)
+	cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp)
     for i in eachindex(k)
-	ThreadsX.foreach(referenceable(El), hyp, C) do b, H, D
-	    b[] = real(π*sinc(k[i]*H/π)*D)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, Dr
+	    b[] = π*sinc(k[i]*gp/π)*dm*real(Dr)
 	end
 	E[i] = @fastmath sum(El)*k[i]^2*dx*dy*dz/2/pi^2
+    end
+    return E 
+end
+
+function sinc_reduce_complex(k,x,y,z,C)
+    dx,dy,dz = x[2]-x[1],y[2]-y[1],z[2]-z[1]
+    Nx,Ny,Nz = 2*length(x),2*length(y),2*length(z)
+    Lx = x[end] - x[begin] + dx
+    Ly = y[end] - y[begin] + dy
+    Lz = z[end] - z[begin] + dz
+    xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
+    yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
+    zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
+    E = zero(k)
+    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
+	cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp)
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
+	    b[] = π*sinc(k[i]*gp/π)*dm*real(D)
+	end
+	E[i] = @fastmath sum(El)*k[i]^2*dx*dy*dz/2/pi^2
+	E[i] += @fastmath sum(π*sinc(k[i]*hp[:,:,1]/π)*cm[:,:,1]*imag(D[:,:,1]) + π*sinc(k[i]*hp[:,:,Nz÷2+1]/π)*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*k[i]^2*dx*dy*dz/2/pi^2
     end
     return E 
 end
@@ -753,7 +776,7 @@ end
 """
 	kinetic_density(k,ψ,X,K)
 
-Calculates the kinetic enery spectrum for wavefunction ``\\psi``, at the
+Calculates the kinetic energy spectrum for wavefunction ``\\psi``, at the
 points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 """
 function kinetic_density(k,psi::Psi{2})
@@ -775,52 +798,26 @@ function kinetic_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function kinetic_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi; 
-    ψx,ψy = gradient(psi)
-	cx = auto_correlate(ψx,X,K,P)
-	cy = auto_correlate(ψy,X,K,P)
-    C = @. 0.5(cx + cy)
-    return bessel_reduce(k,X...,C)
-end
-
-function kinetic_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi;  
-    ψx,ψy,ψz = gradient(psi)
-	cx = auto_correlate(ψx,X,K,P)
-    cy = auto_correlate(ψy,X,K,P)
-    cz = auto_correlate(ψz,X,K,P)
-    C = @. 0.5(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
-end
-
-function kinetic_density(k,psi::Psi_qper3{2})
+function kinetic_density(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient(psi)
-	cx = auto_correlate(ψx,X,K)
-	cy = auto_correlate(ψy,X,K)
+	cx = auto_correlate(ψx,X,K,P[2])
+	cy = auto_correlate(ψy,X,K,P[2])
     C = @. 0.5(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function kinetic_density(k,psi::Psi_qper3{3})
+function kinetic_density(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient(psi)
-	cx = auto_correlate(ψx,X,K)
-    cy = auto_correlate(ψy,X,K)
-    cz = auto_correlate(ψz,X,K)
+	cx = auto_correlate(ψx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(ψy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(ψz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_complex(k,X...,C)
 end
 
-"""
-	kinetic_density_qper(k,ψ,X,K)
-
-Calculates the kinetic enery spectrum for wavefunction ``\\psi``, at the
-points `k`. Arrays `X`, `K` should be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function kinetic_density_qper(k,psi::Psi_qper2{2})
+function kinetic_density(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient_qper(psi)
 	cx = auto_correlate(ψx,X,K)
@@ -829,14 +826,14 @@ function kinetic_density_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function kinetic_density_qper(k,psi::Psi_qper3{3})
+function kinetic_density(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient_qper(psi)
-	cx = auto_correlate(ψx,X,K)
-    cy = auto_correlate(ψy,X,K)
-    cz = auto_correlate(ψz,X,K)
+	cx = auto_correlate(ψx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(ψy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(ψz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_complex(k,X...,C)
 end
 
 """
@@ -857,36 +854,28 @@ function kdensity(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function kdensity(k,psi::Psi_plan{2})  
-    @unpack ψ,X,K,P = psi; 
-	C = auto_correlate(ψ,X,K,P)
+function kdensity(P,k,psi::Psi{2})  
+    @unpack ψ,X,K = psi; 
+	C = auto_correlate(ψ,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
-function kdensity(k,psi::Psi_plan{3})  
-    @unpack ψ,X,K,P = psi; 
-	C = auto_correlate(ψ,X,K,P)
-    return sinc_reduce(k,X...,C)
+function kdensity(P,k,psi::Psi{3})  
+    @unpack ψ,X,K = psi; 
+	C = auto_correlate(ψ,X,K,P[2])[:,:,1:length(X[3])+1]
+    return sinc_reduce_complex(k,X...,C)
 end
 
-
-"""
-	kdensity_qper(k,ψ,X,K)
-
-Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
-points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber. Arrays `X`, `K` should be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function kdensity_qper(k,psi::Psi_qper2{2})  
+function kdensity(k,psi::Psi_qper2{2})  
     @unpack ψ,X,K = psi; 
 	C = auto_correlate(ψ,X,K)
     return bessel_reduce(k,X...,C)
 end
 
-function kdensity_qper(k,psi::Psi_qper3{3})  
+function kdensity(k,psi::Psi_qper3{3})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K)
-    return sinc_reduce(k,X...,C)
+	C = auto_correlate(ψ,X,K)[:,:,1:length(X[3])+1]
+    return sinc_reduce_complex(k,X...,C)
 end
 
 """
@@ -896,15 +885,8 @@ points `k`, without the radial weight in `k` space ensuring normalization under 
 """
 wave_action(k,psi::Psi{2}) = kdensity(k,psi::Psi{2}) ./k 
 wave_action(k,psi::Psi{3}) = kdensity(k,psi::Psi{3})./k^2
-wave_action(k,psi::Psi_plan{2}) = kdensity(k,psi::Psi_plan{2}) ./k 
-wave_action(k,psi::Psi_plan{3}) = kdensity(k,psi::Psi_plan{3})./k^2
-
-"""
-	wave_action_qper(k,ψ,X,K)
-Calculates the angle integrated wave-action spectrum ``|\\phi(\\mathbf{k})|^2``, at the
-points `k`, without the radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber cubed. Isotropy is not assumed. Arrays `X`, `K` should be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
+wave_action(P,k,psi::Psi{2}) = kdensity(P,k,psi::Psi{2}) ./k 
+wave_action(P,k,psi::Psi{3}) = kdensity(P,k,psi::Psi{3})./k^2
 wave_action_qper(k,psi::Psi_qper2{2}) = kdensity_qper(k,psi::Psi_qper2{2}) ./k 
 wave_action_qper(k,psi::Psi_qper3{3}) = kdensity_qper(k,psi::Psi_qper3{3})./k^2
 
@@ -939,43 +921,30 @@ function full_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function full_spectrum(k,psi::Psi_plan{2},Ω=0.0)
-    @unpack ψ,X,K,P = psi;  
-    vx,vy = velocity(psi,Ω)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
-
-    cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
-end
-
-function full_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
-
-    cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    cz = auto_correlate(wz,X,K,P)
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
-end
-
-"""
-	full_spectrum_qper(k,ψ)
-
-Caculate the velocity correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function full_spectrum_qper(k,psi::Psi_qper2{2})
+function full_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity_qper(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+    wx,wy = weightedvelocity(P[1],psi)
+
+    cx = auto_correlate(wx,X,K,P[2])
+    cy = auto_correlate(wy,X,K,P[2])
+    C = @. 0.5*(cx + cy)
+    return bessel_reduce(k,X...,C)
+end
+
+function full_spectrum(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    wx,wy,wz = weightedvelocity(P[1],psi)
+
+    cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    return sinc_reduce_real(k,X...,C)
+end
+
+function full_spectrum(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi;  
+    wx,wy = weightedvelocity_qper(psi)
 
     cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
@@ -983,17 +952,15 @@ function full_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function full_spectrum_qper(k,psi::Psi_qper3{3})
+function full_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity_qper(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    wx,wy,wz = weightedvelocity_qper(psi)
 
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
-    cz = auto_correlate(wz,X,K)
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
@@ -1023,35 +990,28 @@ function full_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function full_current_spectrum(k,psi::Psi_plan{2},Ω=0.0)
-    @unpack ψ,X,K,P = psi;  
-    jx,jy = current(psi,Ω)
+function full_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    jx,jy = current(P[1],psi,Ω)
 
-    cx = auto_correlate(jx,X,K,P)
-    cy = auto_correlate(jy,X,K,P)
+    cx = auto_correlate(jx,X,K,P[2])
+    cy = auto_correlate(jy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function full_current_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; 
-    jx,jy,jz = current(psi)
+function full_current_spectrum(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    jx,jy,jz = current(P[1],psi)
 
-    cx = auto_correlate(jx,X,K,P)
-    cy = auto_correlate(jy,X,K,P)
-    cz = auto_correlate(jz,X,K,P)
+    cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
-"""
-	full_current_spectrum_qper(k,ψ)
-
-Caculate the current correlation spectrum for wavefunction ``\\psi`` without any Helmholtz decomposition being applied.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function full_current_spectrum_qper(k,psi::Psi_qper2{2})
+function full_current_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     jx,jy = current_qper(psi)
 
@@ -1061,15 +1021,15 @@ function full_current_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function full_current_spectrum_qper(k,psi::Psi_qper3{3})
+function full_current_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
     jx,jy,jz = current_qper(psi)
 
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
-    cz = auto_correlate(jz,X,K)
+    cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
@@ -1107,75 +1067,34 @@ function incompressible_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function incompressible_spectrum(k,psi::Psi_plan{2},Ω=0.0)
-    @unpack ψ,X,K,P = psi;  
-    vx,vy = velocity(psi,Ω)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+function incompressible_spectrum(P,k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
+    wx,wy = weightedvelocity(P[1],psi,Ω)
     Wi, _ = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wi
 
-	cx = auto_correlate(wx,X,K,P)
-	cy = auto_correlate(wy,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])
+	cy = auto_correlate(wy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+function incompressible_spectrum(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
+    wx,wy,wz = weightedvelocity(P[1],psi)
     Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    cz = auto_correlate(wz,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
-function incompressible_spectrum_alt(k,psi::Psi{3})
-    @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
-    Wi, _ = helmholtz(wx,wy,wz,K...)
-    wx,wy,wz = Wi
-
-	cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
-    cz = auto_correlate(wz,X,K)
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce_alt(k,X...,C)
-end
-
-function incompressible_spectrum_alt(P,k,psi::Psi{3})
-    @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity(P[1],psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
-    Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
-    wx,wy,wz = Wi
-
-	cx = auto_correlate(wx,X,K,P[2])
-    cy = auto_correlate(wy,X,K,P[2])
-    cz = auto_correlate(wz,X,K,P[2])
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce_alt(k,X...,C)
-end
-
-"""
-	incompressible_spectrum_qper(k,ψ)
-
-Calculate the incompressible velocity correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function incompressible_spectrum_qper(k,psi::Psi_qper2{2})
+function incompressible_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity_qper(psi)
+    wx,wy = weightedvelocity_qper(psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy
     Wi, _ = helmholtz(wx,wy,K...)
@@ -1187,19 +1106,19 @@ function incompressible_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_spectrum_qper(k,psi::Psi_qper3{3})
+function incompressible_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity_qper(psi)
+    wx,wy,wz = weightedvelocity_qper(psi)
     a = abs.(ψ)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
     Wi, _ = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
-    cz = auto_correlate(wz,X,K)
+	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
@@ -1233,39 +1152,32 @@ function incompressible_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function incompressible_current_spectrum(k,psi::Psi_plan{2},Ω=0.0)
-    @unpack ψ,X,K,P = psi;  
+function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
+    @unpack ψ,X,K = psi;  
     jx,jy = current(psi,Ω)
     Ji, _ = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K,P)
-	cy = auto_correlate(jy,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])
+	cy = auto_correlate(jy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_current_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; 
+function incompressible_current_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi; 
     jx,jy,jz = current(psi)
     Ji, _ = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Ji
 
-	cx = auto_correlate(jx,X,K,P)
-    cy = auto_correlate(jy,X,K,P)
-    cz = auto_correlate(jz,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
-"""
-	incompressible_current_spectrum_qper(k,ψ)
-
-Caculate the incompressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function incompressible_current_spectrum_qper(k,psi::Psi_qper2{2})
+function incompressible_current_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     jx,jy = current_qper(psi)
     Ji, _ = helmholtz(jx,jy,K...)
@@ -1277,17 +1189,17 @@ function incompressible_current_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function incompressible_current_spectrum_qper(k,psi::Psi_qper3{3})
+function incompressible_current_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi; 
     jx,jy,jz = current_qper(psi)
     Ji, _ = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Ji
 
-	cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
-    cz = auto_correlate(jz,X,K)
+	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
@@ -1325,47 +1237,34 @@ function compressible_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function compressible_spectrum(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+function compressible_spectrum(P,k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    wx,wy = weightedvelocity(P[1],psi)
     _, Wc = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wc
 
-	cx = auto_correlate(wx,X,K,P)
-	cy = auto_correlate(wy,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])
+	cy = auto_correlate(wy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+function compressible_spectrum(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    wx,wy,wz = weightedvelocity(P[1],psi)
     _, Wc = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    cz = auto_correlate(wz,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
-"""
-	compressible_spectrum_qper(k,ψ,X,K)
-
-Caculate the compressible kinetic energy spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function compressible_spectrum_qper(k,psi::Psi_qper2{2})
+function compressible_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
-    vx,vy = velocity_qper(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+    wx,wy = weightedvelocity_qper(psi)
     _, Wc = helmholtz(wx,wy,K...)
     wx,wy = Wc
 
@@ -1375,19 +1274,17 @@ function compressible_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_spectrum_qper(k,psi::Psi_qper3{3})
+function compressible_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
-    vx,vy,vz = velocity_qper(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    wx,wy,wz = weightedvelocity_qper(psi)
     _, Wc = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
-    cz = auto_correlate(wz,X,K)
+	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
@@ -1421,9 +1318,9 @@ function compressible_current_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function compressible_current_spectrum(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    jx,jy = current(psi)
+function compressible_current_spectrum(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    jx,jy = current(P[1],psi)
     _, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Jc
 
@@ -1433,27 +1330,20 @@ function compressible_current_spectrum(k,psi::Psi_plan{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_current_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi
-    jx,jy,jz = current(psi)
+function compressible_current_spectrum(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current(P[1],psi)
     _, Jc = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K,P)
-    cy = auto_correlate(jy,X,K,P)
-    cz = auto_correlate(jz,X,K,P)
+	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
-"""
-	compressible_current_spectrum_qper(k,ψ,X,K)
-
-Caculate the compressible current correlation spectrum for wavefunction ``\\psi``, via Helmholtz decomposition.
-Input arrays `X`, `K` must be computed using `makearrays`.
-Uses quasiperiodic boundary conditions.
-"""
-function compressible_current_spectrum_qper(k,psi::Psi_qper2{2})
+function compressible_current_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     jx,jy = current_qper(psi)
     _, Jc = helmholtz(jx,jy,K...)
@@ -1465,17 +1355,191 @@ function compressible_current_spectrum_qper(k,psi::Psi_qper2{2})
     return bessel_reduce(k,X...,C)
 end
 
-function compressible_current_spectrum_qper(k,psi::Psi_qper3{3})
+function compressible_current_spectrum(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     jx,jy,jz = current_qper(psi)
     _, Jc = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
-    cz = auto_correlate(jz,X,K)
+	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
+end
+
+"""
+	decomposed_spectra(k,ψ,X,K)
+
+Caculate both the incompressible and compressible kinetic energy spectra for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+
+function decomposed_spectra(P,k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    wx,wy = weightedvelocity(P[1],psi)
+    Wi, Wc = helmholtz(P[1],wx,wy,K...)
+    wx,wy = Wi
+
+	cx = auto_correlate(wx,X,K,P[2])
+	cy = auto_correlate(wy,X,K,P[2])
+    C = @. 0.5*(cx + cy)
+    εki = bessel_reduce(k,X...,C)
+	wx,wy = Wc
+
+	cx = auto_correlate(wx,X,K,P[2])
+	cy = auto_correlate(wy,X,K,P[2])
+    C = @. 0.5*(cx + cy)
+	εkc = bessel_reduce(k,X...,C)
+	return εki, εkc
+end
+
+function decomposed_spectra(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    wx,wy,wz = weightedvelocity(P[1],psi)
+    Wi, Wc = helmholtz(P[1],wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    εki = sinc_reduce_real(k,X...,C)
+	wx,wy,wz = Wc
+
+	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+	εkc = sinc_reduce_real(k,X...,C)
+	return εki, εkc
+end
+
+function decomposed_spectra(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi 
+    wx,wy = weightedvelocity_qper(psi)
+    Wi, Wc = helmholtz(wx,wy,K...)
+    wx,wy = Wi
+
+	cx = auto_correlate(wx,X,K)
+	cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    εki = bessel_reduce(k,X...,C)
+	wx,wy = Wc
+
+	cx = auto_correlate(wx,X,K)
+	cy = auto_correlate(wy,X,K)
+    C = @. 0.5*(cx + cy)
+    εki = bessel_reduce(k,X...,C)
+	return εki, εkc
+end
+
+function decomposed_spectra(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi
+    wx,wy,wz = weightedvelocity_qper(psi)
+    Wi, Wc = helmholtz(wx,wy,wz,K...)
+    wx,wy,wz = Wi
+
+	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    εki = sinc_reduce_real(k,X...,C)
+	wx,wy,wz = Wc
+
+	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    εki = sinc_reduce_real(k,X...,C)
+	return εki, εkc
+end
+
+"""
+	decomposed_current_spectra(k,ψ,X,K)
+
+Caculate both the incompressible and compressible current correlation spectra for wavefunction ``\\psi``, via Helmholtz decomposition.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+
+function decomposed_current_spectra(k,psi::Psi{2})
+    @unpack ψ,X,K = psi 
+    jx,jy = current(P[1],psi)
+    Ji, Jc = helmholtz(P[1],jx,jy,K...)
+    jx,jy = Ji
+
+	cx = auto_correlate(jx,X,K,P)
+	cy = auto_correlate(jy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    jci = bessel_reduce(k,X...,C)
+	jx,jy = Jc
+
+	cx = auto_correlate(jx,X,K,P)
+	cy = auto_correlate(jy,X,K,P)
+    C = @. 0.5*(cx + cy)
+    jcc = bessel_reduce(k,X...,C)
+	return jci, jcc
+end
+
+function decomposed_current_spectra(k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current(P[1],psi)
+    Ji, Jc = helmholtz(P[1],jx,jy,jz,K...)
+    jx,jy,jz = Ji
+
+	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    jci = sinc_reduce_real(k,X...,C)
+	jx,jy,jz = Jc
+
+	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    jcc = sinc_reduce_real(k,X...,C)
+	return jci, jcc
+end
+
+function decomposed_current_spectra(k,psi::Psi_qper2{2})
+    @unpack ψ,X,K = psi 
+    jx,jy = current_qper(psi)
+    Ji, Jc = helmholtz(jx,jy,K...)
+    jx,jy = Ji
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    jci = bessel_reduce(k,X...,C)
+	jx,jy = Jc
+
+	cx = auto_correlate(jx,X,K)
+	cy = auto_correlate(jy,X,K)
+    C = @. 0.5*(cx + cy)
+    jcc = bessel_reduce(k,X...,C)
+	return jci, jcc
+end
+
+function decomposed_current_spectra(k,psi::Psi_qper3{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current_qper(psi)
+    Ji, Jc = helmholtz(jx,jy,jz,K...)
+    jx,jy,jz = Ji
+
+	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    jci = sinc_reduce_real(k,X...,C)
+	jx,jy,jz = Jc
+
+	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
+    C = @. 0.5*(cx + cy + cz)
+    jcc = sinc_reduce_real(k,X...,C)
+	return jci, jcc
 end
 
 """
@@ -1507,25 +1571,25 @@ function qpressure_spectrum(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function qpressure_spectrum(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wx,wy = gradient(psia)
+function qpressure_spectrum(P,k,psi::Psi{2})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wx,wy = gradient(P[1],psia)
 
-	cx = auto_correlate(wx,X,K,P)
-	cy = auto_correlate(wy,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])
+	cy = auto_correlate(wy,X,K,P[2])
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
 
-function qpressure_spectrum(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wx,wy,wz = gradient(psia)
+function qpressure_spectrum(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wx,wy,wz = gradient(P[1].psia)
 
-	cx = auto_correlate(wx,X,K,P)
-    cy = auto_correlate(wy,X,K,P)
-    cz = auto_correlate(wz,X,K,P)
+	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -1546,11 +1610,11 @@ function qpressure_spectrum(k,psi::Psi_qper3{3})
     psia = Psi(abs.(ψ) |> complex,X,K )
     wx,wy,wz = gradient(psia)
 
-	cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
-    cz = auto_correlate(wz,X,K)
+	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
+    cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 """
