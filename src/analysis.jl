@@ -267,7 +267,123 @@ function velocity(psi::Psi_plan{3})
 end
 
 """
+	weightedvelocity(psi::Psi{D})
+
+Compute the `D` weighted velocity, i.e. sqrt(n)*v, components of an `Psi` of spatial dimension `D`.
+The `D` velocities returned are `D`-dimensional arrays.
+"""
+function weightedvelocity(psi::Psi{1})
+	@unpack ψ = psi
+    	ψx = gradient(psi)
+	wx = @. imag(conj(ψ)*ψx)/abs(ψ)
+    	@. wx[isnan(wx)] = zero(wx[1])
+	return wx
+end
+
+function weightedvelocity(psi::Psi{2},Ω = 0)
+	@unpack ψ,X = psi
+    	x,y = X
+    	ψx,ψy = gradient(psi)
+    	rhosq = abs.(ψ)
+	wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq 
+	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+	return vx,vy
+end
+
+function weightedvelocity(psi::Psi{3})
+	@unpack ψ = psi
+	rhosq = abs.(ψ)
+    	ψx,ψy,ψz = gradient(psi)
+	wx = @. imag(conj(ψ)*ψx)/rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq
+	wz = @. imag(conj(ψ)*ψz)/rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+    	@. wz[isnan(wz)] = zero(wz[1])
+	return wx,wy,wz
+end
+
+function weightedvelocity(Pall, psi::Psi{3})
+	@unpack ψ = psi
+	rhosq = abs.(ψ)
+    	ψx,ψy,ψz = gradient(Pall, psi)
+	wx = @. imag(conj(ψ)*ψx)/rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq
+	wz = @. imag(conj(ψ)*ψz)/rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+    	@. wz[isnan(wz)] = zero(wz[1])
+	return wx,wy,wz
+end
+
+function weightedvelocity(psi::Psi_plan{1})
+	@unpack ψ = psi
+    	ψx = gradient(psi)
+	wx = @. imag(conj(ψ)*ψx)/abs(ψ)
+    	@. wx[isnan(wx)] = zero(wx[1])
+	return wx
+end
+
+function weightedvelocity(psi::Psi_plan{2},Ω = 0)
+	@unpack ψ,X = psi
+    	x,y = X
+    	ψx,ψy = gradient(psi)
+    	rhosq = abs.(ψ)
+	wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+	return vx,vy
+end
+
+function weightedvelocity(psi::Psi_plan{3})
+	@unpack ψ = psi
+	rhosq = abs.(ψ)
+    	ψx,ψy,ψz = gradient(psi)
+	wx = @. imag(conj(ψ)*ψx)/rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq
+	wz = @. imag(conj(ψ)*ψz)/rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+    	@. wz[isnan(wz)] = zero(wz[1])
+	return wx,wy,wz
+end
+
+"""
 	velocity_qper(psi::Psi{D})
+
+Compute the `D` weighted velocity, i.e. sqrt(n)*v, components of an `Psi` of spatial dimension `D`.
+The `D` velocities returned are `D`-dimensional arrays.
+Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
+"""
+function weightedvelocity_qper(psi::Psi_qper2{2})
+	@unpack ψ = psi
+    	ψx,ψy = gradient_qper(psi)
+    	rhosq = abs.(ψ)
+	wx = @. imag(conj(ψ)*ψx)/rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+	return wx,wy
+end
+
+function weightedvelocity_qper(psi::Psi_qper3{3})
+	@unpack ψ = psi
+	rhosq = abs.(ψ)
+    	ψx,ψy,ψz = gradient_qper(psi)
+	wx = @. imag(conj(ψ)*ψx)/rhosq
+	wy = @. imag(conj(ψ)*ψy)/rhosq
+	wz = @. imag(conj(ψ)*ψz)/rhosq
+    	@. wx[isnan(wx)] = zero(wx[1])
+    	@. wy[isnan(wy)] = zero(wy[1])
+    	@. wz[isnan(wz)] = zero(wz[1])
+	return wx,wy,wz
+end
+
+"""
+	weightedvelocity_qper(psi::Psi{D})
 
 Compute the `D` velocity components of an `Psi` of spatial dimension `D`.
 The `D` velocities returned are `D`-dimensional arrays.
