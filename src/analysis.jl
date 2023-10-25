@@ -738,7 +738,7 @@ function sinc_reduce_real(k,x,y,z,C)
     yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
     E = zero(k)
-    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2,1,1),[3 2 1]).^2)
+    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
 	cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
     El = similar(hp)
     for i in eachindex(k)
