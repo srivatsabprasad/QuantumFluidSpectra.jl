@@ -22,13 +22,6 @@ struct Psi{D} <: Field
     K::NTuple{D}
 end
 
-struct Psi_plan{D} <: Field
-    ψ::Array{Float64,D}
-    X::NTuple{D}
-    K::NTuple{D}
-    P::NTuple{2}
-end
-
 struct Psi_qper2{D} <: Field
     ψ::Array{Complex{Float64},D}
     X::NTuple{D}
@@ -48,7 +41,7 @@ end
 include("arrays.jl")
 include("analysis.jl")
 
-export Psi, Psi_plan, Psi_qper2, Psi_qper3, xvecs, kvecs
+export Psi, Psi_qper2, Psi_qper3, xvecs, kvecs
 export auto_correlate, cross_correlate
 export bessel_reduce, sinc_reduce, gv, gv3, sinc_reduce_alt
 export log10range, convolve
