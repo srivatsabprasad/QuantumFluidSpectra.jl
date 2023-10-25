@@ -145,6 +145,21 @@ function fft_differentials(X,K)
 end
 
 """
+    DΣ = correlation_measure(X,K)
+
+Evalutes measure for auto_correlate, cross_correlate and convolve
+"""
+function correlation_measure(X,K)
+    M = length(X)
+    DX = zeros(M); DK = zeros(M)
+    for i ∈ eachindex(X)
+        DX[i],DK[i] = dfft(X[i],K[i])
+    end
+    DΣ = prod(DX)^2*prod(DK)*(2*pi)^(M/2)
+    return DΣ
+end
+
+"""
     P = fft_planner(X,K)
 
 Evalutes tuple of planners for FFTs for dimensions 1, 2, 3, relevant for periodic boundary conditions.
