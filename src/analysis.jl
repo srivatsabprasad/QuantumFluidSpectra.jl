@@ -1659,42 +1659,6 @@ function incompressible_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function incompressible_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy 
-    Wi, Wc = helmholtz(P[1],ux,uy,K...)
-    wix,wiy = Wi
-    U = @. exp(im*angle(ψ))
-    @. wix *= U # restore phase factors
-    @. wiy *= U
-
-	cx = auto_correlate(wix,X,K,P)
-	cy = auto_correlate(wiy,X,K,P)
-    C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
-end
-
-function incompressible_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
-    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
-    wix,wiy,wiz = Wi
-    U = @. exp(im*angle(ψ))
-    @. wix *= U # restore phase factors
-    @. wiy *= U
-    @. wiz *= U
-
-	cx = auto_correlate(wix,X,K,P)
-    cy = auto_correlate(wiy,X,K,P)
-    cz = auto_correlate(wiz,X,K,P)
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
-end
-
 """
     incompressible_density_qper(k,ψ,X,K)
 
@@ -1780,42 +1744,6 @@ function compressible_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function compressible_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy 
-    Wi, Wc = helmholtz(P[1],ux,uy,K...)
-    wcx,wcy = Wc
-    U = @. exp(im*angle(ψ))
-    @. wcx *= U # restore phase factors
-    @. wcy *= U
-
-	cx = auto_correlate(wcx,X,K,P)
-	cy = auto_correlate(wcy,X,K,P)
-    C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
-end
-
-function compressible_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
-    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
-    wcx,wcy,wcz = Wc
-    U = @. exp(im*angle(ψ))
-    @. wcx *= U # restore phase factors
-    @. wcy *= U
-    @. wcz *= U
-
-	cx = auto_correlate(wcx,X,K,P)
-    cy = auto_correlate(wcy,X,K,P)
-    cz = auto_correlate(wcz,X,K,P)
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
-end
-
 """
     compressible_density_qper(k,ψ,X,K)
 
@@ -1891,36 +1819,6 @@ function qpressure_density(k,psi::Psi{3})
 	cx = auto_correlate(rnx,X,K)
     cy = auto_correlate(rny,X,K)
     cz = auto_correlate(rnz,X,K)
-    C = @. 0.5*(cx + cy + cz)
-    return sinc_reduce(k,X...,C)
-end
-
-function qpressure_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    rnx,rny = gradient(psia)
-    U = @. exp(im*angle(ψ))
-    @. rnx *= U # restore phase factors
-    @. rny *= U 
-
-	cx = auto_correlate(rnx,X,K,P)
-	cy = auto_correlate(rny,X,K,P)
-    C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
-end
-
-function qpressure_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    rnx,rny,rnz = gradient(psia)
-    U = @. exp(im*angle(ψ))
-    @. rnx *= U # restore phase factors
-    @. rny *= U 
-    @. rnz *= U 
-
-	cx = auto_correlate(rnx,X,K,P)
-    cy = auto_correlate(rny,X,K,P)
-    cz = auto_correlate(rnz,X,K,P)
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce(k,X...,C)
 end
@@ -2005,52 +1903,6 @@ function ic_density(k,psi::Psi{3})
     cciy = convolve(wcy,wiy,X,K)
     cicz = convolve(wiz,wcz,X,K) 
     cciz = convolve(wcz,wiz,X,K)
-    C = @. 0.5*(cicx + ccix + cicy + cciy + cicz + cciz)  
-    return sinc_reduce(k,X...,C)
-end
-
-function ic_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy 
-    Wi, Wc = helmholtz(P[1],ux,uy,K...)
-    wix,wiy = Wi; wcx,wcy = Wc
-    U = @. exp(im*angle(ψ))
-    @. wix *= im*U # restore phase factors and make u -> w fields
-    @. wiy *= im*U
-    @. wcx *= im*U 
-    @. wcy *= im*U
-
-    cicx = convolve(wix,wcx,X,K,P[2]) 
-    ccix = convolve(wcx,wix,X,K,P[2])
-    cicy = convolve(wiy,wcy,X,K,P[2]) 
-    cciy = convolve(wcy,wiy,X,K,P[2])
-    C = @. 0.5*(cicx + ccix + cicy + cciy)  
-    return bessel_reduce(k,X...,C)
-end
-
-function ic_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz 
-    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
-    wix,wiy,wiz = Wi; wcx,wcy,wcz = Wc
-    U = @. exp(im*angle(ψ))
-    @. wix *= im*U # restore phase factors and make u -> w fields
-    @. wiy *= im*U
-    @. wiz *= im*U   
-    @. wcx *= im*U 
-    @. wcy *= im*U
-    @. wcz *= im*U
-
-    cicx = convolve(wix,wcx,X,K,P[2]) 
-    ccix = convolve(wcx,wix,X,K,P[2])
-    cicy = convolve(wiy,wcy,X,K,P[2]) 
-    cciy = convolve(wcy,wiy,X,K,P[2])
-    cicz = convolve(wiz,wcz,X,K,P[2]) 
-    cciz = convolve(wcz,wiz,X,K,P[2])
     C = @. 0.5*(cicx + ccix + cicy + cciy + cicz + cciz)  
     return sinc_reduce(k,X...,C)
 end
@@ -2164,60 +2016,6 @@ function iq_density(k,psi::Psi{3})
     cqiy = convolve(wqy,wiy,X,K) 
     ciqz = convolve(wiz,wqz,X,K) 
     cqiz = convolve(wqz,wiz,X,K) 
-    C = @. 0.5*(ciqx + cqix + ciqy + cqiy + ciqz + cqiz) 
-    return sinc_reduce(k,X...,C)
-end
-
-function iq_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy 
-    Wi, Wc = helmholtz(P[1],ux,uy,K...)
-    wix,wiy = Wi 
-
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wqx,wqy = gradient(psia)
-
-    U = @. exp(im*angle(ψ))
-    @. wix *= im*U # phase factors and make u -> w fields
-    @. wiy *= im*U
-    @. wqx *= U
-    @. wqy *= U
-
-    ciqx = convolve(wix,wqx,X,K,P[2]) 
-    cqix = convolve(wqx,wix,X,K,P[2]) 
-    ciqy = convolve(wiy,wqy,X,K,P[2]) 
-    cqiy = convolve(wqy,wiy,X,K,P[2]) 
-    C = @. 0.5*(ciqx + cqix + ciqy + cqiy) 
-    return bessel_reduce(k,X...,C)
-end
-
-function iq_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
-    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
-    wix,wiy,wiz = Wi
-
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wqx,wqy,wqz = gradient(psia)
-
-    U = @. exp(im*angle(ψ))
-    @. wix *= im*U # phase factors and make u -> w fields
-    @. wiy *= im*U
-    @. wiz *= im*U
-    @. wqx *= U
-    @. wqy *= U
-    @. wqz *= U
-
-    ciqx = convolve(wix,wqx,X,K,P[2]) 
-    cqix = convolve(wqx,wix,X,K,P[2]) 
-    ciqy = convolve(wiy,wqy,X,K,P[2]) 
-    cqiy = convolve(wqy,wiy,X,K,P[2]) 
-    ciqz = convolve(wiz,wqz,X,K,P[2]) 
-    cqiz = convolve(wqz,wiz,X,K,P[2]) 
     C = @. 0.5*(ciqx + cqix + ciqy + cqiy + ciqz + cqiz) 
     return sinc_reduce(k,X...,C)
 end
@@ -2344,60 +2142,6 @@ function cq_density(k,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function cq_density(k,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy 
-    Wi, Wc = helmholtz(P[1],ux,uy,K...)
-    wcx,wcy = Wc 
-
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wqx,wqy = gradient(psia)
-
-    U = @. exp(im*angle(ψ))
-    @. wcx *= im*U # phase factors and make u -> w fields
-    @. wcy *= im*U
-    @. wqx *= U
-    @. wqy *= U
-
-    ccqx = convolve(wcx,wqx,X,K,P[2]) 
-    cqcx = convolve(wqx,wcx,X,K,P[2]) 
-    ccqy = convolve(wcy,wqy,X,K,P[2]) 
-    cqcy = convolve(wqy,wcy,X,K,P[2]) 
-    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy) 
-    return bessel_reduce(k,X...,C)
-end
-
-function cq_density(k,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    ux = @. a*vx; uy = @. a*vy; uz = @. a*vz
-    Wi, Wc = helmholtz(P[1],ux,uy,uz,K...)
-    wcx,wcy,wcz = Wc  
-
-    psia = Psi_plan(abs.(ψ) |> complex,X,K,P)
-    wqx,wqy,wqz = gradient(psia)
-
-    U = @. exp(im*angle(ψ))
-    @. wcx *= im*U # phase factors and make u -> w fields
-    @. wcy *= im*U
-    @. wcz *= im*U
-    @. wqx *= U
-    @. wqy *= U
-    @. wqz *= U
-
-    ccqx = convolve(wcx,wqx,X,K,P[2]) 
-    cqcx = convolve(wqx,wcx,X,K,P[2]) 
-    ccqy = convolve(wcy,wqy,X,K,P[2]) 
-    cqcy = convolve(wqy,wcy,X,K,P[2]) 
-    ccqz = convolve(wcz,wqz,X,K,P[2]) 
-    cqcz = convolve(wqz,wcz,X,K,P[2]) 
-    C = @. 0.5*(ccqx + cqcx + ccqy + cqcy + ccqz + cqcz) 
-    return sinc_reduce(k,X...,C)
-end
-
 """
     cq_density_qper(k,ψ,X,K)
 
@@ -2503,22 +2247,6 @@ function trap_spectrum(k,V,psi::Psi{3})
     return sinc_reduce(k,X...,C)
 end
 
-function trap_spectrum(k,V,psi::Psi_plan{2})
-    @unpack ψ,X,K,P = psi; x,y = X
-    f = @. abs(ψ)*sqrt(V(x,y',0.))
-    C = auto_correlate(f,X,K,P)
-
-    return bessel_reduce(k,X...,C)
-end
-
-function trap_spectrum(k,V,psi::Psi_plan{3})
-    @unpack ψ,X,K,P = psi; x,y,z = X
-    f = @. abs(ψ)*sqrt(V(x,y',reshape(z,1,1,length(z)),0.))
-    C = auto_correlate(f,X,K,P)
-
-    return sinc_reduce(k,X...,C)
-end
-
 function trap_spectrum(k,V,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; x,y = X
     f = @. abs(ψ)*sqrt(V(x,y',0.))
@@ -2547,22 +2275,6 @@ function density_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi 
     n = abs2.(ψ)
     C = auto_correlate(n,X,K) 
-
-    return sinc_reduce(k,X...,C)
-end
-
-function density_spectrum(k,psi::Psi_plan{2}) 
-    @unpack ψ,X,K,P = psi 
-    n = abs2.(ψ)
-    C = auto_correlate(n,X,K,P) 
-
-    return bessel_reduce(k,X...,C)
-end
-
-function density_spectrum(k,psi::Psi_plan{3}) 
-    @unpack ψ,X,K,P = psi 
-    n = abs2.(ψ)
-    C = auto_correlate(n,X,K,P) 
 
     return sinc_reduce(k,X...,C)
 end
