@@ -29,27 +29,30 @@ function gradient(psi::Psi{3})
 	return ψx,ψy,ψz
 end
 
-function gradient(Pall, psi::Psi{1})
+function gradient(P, psi::Psi{1})
 	@unpack ψ,K = psi; kx = K[1] 
-    	ϕ = Pall*ψ
-	ψx = inv(Pall)*(im*kx.*ϕ)
+    	ϕ = P[3]*ψ
+	ψx = inv(P[3])*(im*kx.*ϕ)
     return ψx
 end
 
-function gradient(Pall, psi::Psi{2})
+function gradient(P, psi::Psi{2})
 	@unpack ψ,K = psi; kx,ky = K 
-	ϕ = Pall*ψ
-	ψx = inv(Pall)*(im*kx.*ϕ)
-	ψy = inv(Pall)*(im*ky'.*ϕ)
+	ϕ = P[3]*ψ
+	ψx = inv(P[3])*(im*kx.*ϕ)
+	ϕ = P[4]*ψ
+	ψy = inv(P[4])*(im*ky'.*ϕ)
 	return ψx,ψy
 end
 
-function gradient(Pall, psi::Psi{3})
+function gradient(P, psi::Psi{3})
 	@unpack ψ,K = psi; kx,ky,kz = K 
-	ϕ = Pall*ψ
-	ψx = inv(Pall)*(im*kx.*ϕ)
-	ψy = inv(Pall)*(im*ky'.*ϕ)
-	ψz = inv(Pall)*(im*reshape(kz,1,1,length(kz)).*ϕ)
+	ϕ = P[3]*ψ
+	ψx = inv(P[3])*(im*kx.*ϕ)
+	ϕ = P[4]*ψ
+	ψy = inv(P[4])*(im*ky'.*ϕ)
+	ϕ = P[5]*ψ
+	ψz = inv(P[5])*(im*reshape(kz,1,1,length(kz)).*ϕ)
 	return ψx,ψy,ψz
 end
 
@@ -115,25 +118,25 @@ function current(psi::Psi{3})
 	return jx,jy,jz
 end
 
-function current(Pall, psi::Psi{1})
+function current(, psi::Psi{1})
 	@unpack ψ = psi 
-	ψx = gradient(Pall, psi)
+	ψx = gradient(P, psi)
 	jx = @. imag(conj(ψ)*ψx)
     return jx
 end
 
-function current(Pall, psi::Psi{2},Ω = 0)
+function current(P, psi::Psi{2},Ω = 0)
 	@unpack ψ,X = psi 
     	x,y = X
-    	ψx,ψy = gradient(Pall, psi)
+    	ψx,ψy = gradient(P, psi)
 	jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
 	jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
 	return jx,jy
 end
 
-function current(Pall, psi::Psi{3})
+function current(P, psi::Psi{3})
     	@unpack ψ = psi 
-    	ψx,ψy,ψz = gradient(Pall, psi)
+    	ψx,ψy,ψz = gradient(P, psi)
 	jx = @. imag(conj(ψ)*ψx)
 	jy = @. imag(conj(ψ)*ψy)
 	jz = @. imag(conj(ψ)*ψz)
@@ -203,18 +206,18 @@ function velocity(psi::Psi{3})
 	return vx,vy,vz
 end
 
-function velocity(Pall, psi::Psi{1})
+function velocity(P, psi::Psi{1})
 	@unpack ψ = psi
-    	ψx = gradient(Pall, psi)
+    	ψx = gradient(P, psi)
 	vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
     	@. vx[isnan(vx)] = zero(vx[1])
 	return vx
 end
 
-function velocity(Pall, psi::Psi{2},Ω = 0)
+function velocity(P, psi::Psi{2},Ω = 0)
 	@unpack ψ,X = psi
     	x,y = X
-    	ψx,ψy = gradient(Pall, psi)
+    	ψx,ψy = gradient(P, psi)
     	rho = abs2.(ψ)
 	vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
 	vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
@@ -223,10 +226,10 @@ function velocity(Pall, psi::Psi{2},Ω = 0)
 	return vx,vy
 end
 
-function velocity(Pall, psi::Psi{3})
+function velocity(P, psi::Psi{3})
 	@unpack ψ = psi
 	rho = abs2.(ψ)
-    	ψx,ψy,ψz = gradient(Pall, psi)
+    	ψx,ψy,ψz = gradient(P, psi)
 	vx = @. imag(conj(ψ)*ψx)/rho
 	vy = @. imag(conj(ψ)*ψy)/rho
 	vz = @. imag(conj(ψ)*ψz)/rho
@@ -307,18 +310,18 @@ function weightedvelocity(psi::Psi{3})
 end
 
 
-function weightedvelocity(Pall, psi::Psi{1})
+function weightedvelocity(P, psi::Psi{1})
 	@unpack ψ = psi
-    	ψx = gradient(Pall, psi)
+    	ψx = gradient(P, psi)
 	wx = @. imag(conj(ψ)*ψx)/abs(ψ)
     	@. wx[isnan(wx)] = zero(wx[1])
 	return wx
 end
 
-function weightedvelocity(Pall, psi::Psi{2},Ω = 0)
+function weightedvelocity(P, psi::Psi{2},Ω = 0)
 	@unpack ψ,X = psi
     	x,y = X
-    	ψx,ψy = gradient(Pall, psi)
+    	ψx,ψy = gradient(P, psi)
     	rhosq = abs.(ψ)
 	wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq
 	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
@@ -327,10 +330,10 @@ function weightedvelocity(Pall, psi::Psi{2},Ω = 0)
 	return vx,vy
 end
 
-function weightedvelocity(Pall, psi::Psi{3})
+function weightedvelocity(P, psi::Psi{3})
 	@unpack ψ = psi
 	rhosq = abs.(ψ)
-    	ψx,ψy,ψz = gradient(Pall, psi)
+    	ψx,ψy,ψz = gradient(P, psi)
 	wx = @. imag(conj(ψ)*ψx)/rhosq
 	wy = @. imag(conj(ψ)*ψy)/rhosq
 	wz = @. imag(conj(ψ)*ψz)/rhosq
