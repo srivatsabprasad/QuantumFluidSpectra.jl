@@ -217,5 +217,11 @@ function fft_planner(X,K,f,wisdom=nothing)
                    FFTW.import_wisdom(wisdom)
                end
            end
-       return (Pall, Pbig, Px, Py, Pz)
+       if M == 0
+            return (Pall, Pbig, Px)
+        elseif M == 1
+            return (Pall, Pbig, Px, Py)
+        else
+            return (Pall, Pbig, Px, Py, Pz)
+        end
 end
