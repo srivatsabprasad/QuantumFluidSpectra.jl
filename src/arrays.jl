@@ -186,15 +186,36 @@ function fft_planner(X,K,f,wisdom=nothing)
            if f == "e"
                Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.ESTIMATE);
                Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.ESTIMATE);
+                Px = FFTW.plan_fft(copy(planstate), [1], flags=FFTW.ESTIMATE);
+                if M > 1
+                    Py = FFTW.plan_fft(copy(planstate), [2], flags=FFTW.ESTIMATE);
+                    if M > 2
+                        Pz = FFTW.plan_fft(copy(planstate), [3], flags=FFTW.ESTIMATE);
+                    end
+                end
            elseif f == "m"
                Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.MEASURE);
                Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.MEASURE);
+                Px = FFTW.plan_fft(copy(planstate), [1], flags=FFTW.MEASURE);
+                if M > 1
+                    Py = FFTW.plan_fft(copy(planstate), [2], flags=FFTW.MEASURE);
+                    if M > 2
+                        Pz = FFTW.plan_fft(copy(planstate), [3], flags=FFTW.MEASURE);
+                    end
+                end
            elseif f == "p"
                Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.PATIENT);
                Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.PATIENT);
+                Px = FFTW.plan_fft(copy(planstate), [1], flags=FFTW.PATIENT);
+                if M > 1
+                    Py = FFTW.plan_fft(copy(planstate), [2], flags=FFTW.PATIENT);
+                    if M > 2
+                        Pz = FFTW.plan_fft(copy(planstate), [3], flags=FFTW.PATIENT);
+                    end
+                end
                if !isnothing(wisdom)
                    FFTW.import_wisdom(wisdom)
                end
            end
-       return (Pall, Pbig)
+       return (Pall, Pbig, Px, Py, Pz)
 end
