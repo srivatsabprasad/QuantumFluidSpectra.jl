@@ -38,6 +38,7 @@ The setup is described below.
 ```julia
 # create simple FFTW plans
 P = fft_planner(X,K,"e");
+```
 </details>
 <details><summary><b>Power spectra and correlations</b></summary>
 To evaluate the incompressible power spectral density on a particular k grid:
