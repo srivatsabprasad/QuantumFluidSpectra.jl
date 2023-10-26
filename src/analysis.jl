@@ -803,7 +803,7 @@ end
 
 function kinetic_density(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi; 
-    ψx,ψy = gradient(psi)
+    ψx,ψy = gradient(P,psi)
 	cx = auto_correlate(ψx,X,K,P[2])
 	cy = auto_correlate(ψy,X,K,P[2])
     C = @. 0.5(cx + cy)
@@ -812,7 +812,7 @@ end
 
 function kinetic_density(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi;  
-    ψx,ψy,ψz = gradient(psi)
+    ψx,ψy,ψz = gradient(P,psi)
 	cx = auto_correlate(ψx,X,K,P[2])[:,:,1:length(X[3])+1]
     cy = auto_correlate(ψy,X,K,P[2])[:,:,1:length(X[3])+1]
     cz = auto_correlate(ψz,X,K,P[2])[:,:,1:length(X[3])+1]
@@ -901,9 +901,7 @@ Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function full_spectrum(k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity(psi,Ω)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+    wx,wy = weightedvelocity(psi,Ω)
 
     cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
@@ -913,9 +911,7 @@ end
 
 function full_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    wx,wy,wz = weightedvelocity(psi)
 
     cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
@@ -926,7 +922,7 @@ end
 
 function full_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    wx,wy = weightedvelocity(P[1],psi)
+    wx,wy = weightedvelocity(P,psi)
 
     cx = auto_correlate(wx,X,K,P[2])
     cy = auto_correlate(wy,X,K,P[2])
@@ -936,7 +932,7 @@ end
 
 function full_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    wx,wy,wz = weightedvelocity(P[1],psi)
+    wx,wy,wz = weightedvelocity(P,psi)
 
     cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
@@ -995,7 +991,7 @@ end
 
 function full_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    jx,jy = current(P[1],psi,Ω)
+    jx,jy = current(P,psi,Ω)
 
     cx = auto_correlate(jx,X,K,P[2])
     cy = auto_correlate(jy,X,K,P[2])
@@ -1005,7 +1001,7 @@ end
 
 function full_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    jx,jy,jz = current(P[1],psi)
+    jx,jy,jz = current(P,psi)
 
     cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
     cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
@@ -1043,9 +1039,7 @@ Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function incompressible_spectrum(k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    vx,vy = velocity(psi,Ω)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+    wx,wy = weightedvelocity(psi,Ω)
     Wi, _ = helmholtz(wx,wy,K...)
     wx,wy = Wi
 
@@ -1057,9 +1051,7 @@ end
 
 function incompressible_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    wx,wy,wz = weightedvelocity(psi)
     Wi, _ = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wi
 
@@ -1072,7 +1064,7 @@ end
 
 function incompressible_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    wx,wy = weightedvelocity(P[1],psi,Ω)
+    wx,wy = weightedvelocity(P,psi,Ω)
     Wi, _ = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wi
 
@@ -1084,7 +1076,7 @@ end
 
 function incompressible_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    wx,wy,wz = weightedvelocity(P[1],psi)
+    wx,wy,wz = weightedvelocity(P,psi)
     Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wi
 
@@ -1157,7 +1149,7 @@ end
 
 function incompressible_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    jx,jy = current(psi,Ω)
+    jx,jy = current(P,psi,Ω)
     Ji, _ = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
@@ -1169,7 +1161,7 @@ end
 
 function incompressible_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
-    jx,jy,jz = current(psi)
+    jx,jy,jz = current(P,psi)
     Ji, _ = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Ji
 
@@ -1213,9 +1205,7 @@ Input arrays `X`, `K` must be computed using `makearrays`.
 """
 function compressible_spectrum(k,psi::Psi{2})
     @unpack ψ,X,K = psi 
-    vx,vy = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy
+    wx,wy = weightedvelocity(psi)
     _, Wc = helmholtz(wx,wy,K...)
     wx,wy = Wc
 
@@ -1227,9 +1217,7 @@ end
 
 function compressible_spectrum(k,psi::Psi{3})
     @unpack ψ,X,K = psi
-    vx,vy,vz = velocity(psi)
-    a = abs.(ψ)
-    wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
+    wx,wy,wz = weightedvelocity(psi)
     _, Wc = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wc
 
@@ -1242,7 +1230,7 @@ end
 
 function compressible_spectrum(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
-    wx,wy = weightedvelocity(P[1],psi)
+    wx,wy = weightedvelocity(P,psi)
     _, Wc = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wc
 
@@ -1254,7 +1242,7 @@ end
 
 function compressible_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
-    wx,wy,wz = weightedvelocity(P[1],psi)
+    wx,wy,wz = weightedvelocity(P,psi)
     _, Wc = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wc
 
@@ -1323,7 +1311,7 @@ end
 
 function compressible_current_spectrum(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
-    jx,jy = current(P[1],psi)
+    jx,jy = current(P,psi)
     _, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Jc
 
@@ -1335,7 +1323,7 @@ end
 
 function compressible_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
-    jx,jy,jz = current(P[1],psi)
+    jx,jy,jz = current(P,psi)
     _, Jc = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Jc
 
@@ -1380,7 +1368,7 @@ Input arrays `X`, `K` must be computed using `makearrays`.
 
 function decomposed_spectra(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
-    wx,wy = weightedvelocity(P[1],psi)
+    wx,wy = weightedvelocity(P,psi)
     Wi, Wc = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wi
 
@@ -1399,7 +1387,7 @@ end
 
 function decomposed_spectra(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
-    wx,wy,wz = weightedvelocity(P[1],psi)
+    wx,wy,wz = weightedvelocity(P,psi)
     Wi, Wc = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wi
 
@@ -1467,7 +1455,7 @@ Input arrays `X`, `K` must be computed using `makearrays`.
 
 function decomposed_current_spectra(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
-    jx,jy = current(P[1],psi)
+    jx,jy = current(P,psi)
     Ji, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
@@ -1486,7 +1474,7 @@ end
 
 function decomposed_current_spectra(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
-    jx,jy,jz = current(P[1],psi)
+    jx,jy,jz = current(P,psi)
     Ji, Jc = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Ji
 
@@ -1577,7 +1565,7 @@ end
 function qpressure_spectrum(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K)
-    wx,wy = gradient(P[1],psia)
+    wx,wy = gradient(P,psia)
 
 	cx = auto_correlate(wx,X,K,P[2])
 	cy = auto_correlate(wy,X,K,P[2])
@@ -1588,7 +1576,7 @@ end
 function qpressure_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K)
-    wx,wy,wz = gradient(P[1],psia)
+    wx,wy,wz = gradient(P,psia)
 
 	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
