@@ -35,6 +35,9 @@ The setup is described below.
     ψ = @. exp(im*ktest*X[1]*one.(X[2]'))
     psi = Psi(ψ,X,K) # make field object with required arrays.
 ```
+```julia
+# create simple FFTW plans
+P = fft_planner(X,K,"e");
 </details>
 <details><summary><b>Power spectra and correlations</b></summary>
 To evaluate the incompressible power spectral density on a particular k grid:
