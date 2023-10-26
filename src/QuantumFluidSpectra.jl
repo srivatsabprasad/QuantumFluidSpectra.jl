@@ -42,7 +42,7 @@ include("arrays.jl")
 include("analysis.jl")
 
 export Psi, Psi_qper2, Psi_qper3, xvecs, kvecs
-export auto_correlate, cross_correlate
+export auto_correlate, cross_correlate, auto_correlate_batch
 export bessel_reduce, sinc_reduce, sinc_reduce_real, sinc_reduce_complex, gv, gv3
 export log10range, convolve
 
