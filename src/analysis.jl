@@ -49,9 +49,9 @@ function gradient(P, psi::Psi{3})
 	@unpack ψ,K = psi; kx,ky,kz = K 
 	ϕ = P[3]*ψ
 	ψx = inv(P[3])*(im*kx.*ϕ)
-	ϕ = P[4]*ψ
+	mul!(ϕ,P[4],ψ)
 	ψy = inv(P[4])*(im*ky'.*ϕ)
-	ϕ = P[5]*ψ
+	mul!(ϕ,P[5],ψ)
 	ψz = inv(P[5])*(im*reshape(kz,1,1,length(kz)).*ϕ)
 	return ψx,ψy,ψz
 end
@@ -600,6 +600,16 @@ function log10range(a,b,n)
     return @. 10^x
 end
 
+"""
+	zeropaddeddft(ψ,Pbig)
+
+Zeropad an array ψ, then find its fft using the plan Pbig.
+"""
+function zeropaddeddft(ψ,Pbig)
+    ϕ = zeropad(ψ)
+    return χ = Pbig*ϕ
+end
+
 @doc raw"""
 	A = convolve(ψ1,ψ2,X,K)
 
@@ -665,7 +675,29 @@ function auto_correlate(ψ,X,K,Pbig)
 	return (inv(Pbig)*abs2.(χ))*DΣ |> fftshift
 end
 
-auto_correlate(Pbig, psi::Psi{D}) where D = auto_correlate(Pbig, psi.ψ,psi.X,psi.K)
+function auto_correlate_batch(ψ1,ψ2,X,K,Pbig)
+    n = length(X)
+    DΣ = correlation_measure(X,K)
+    χ = zeropaddeddft(ψ1,Pbig)
+    χsq = abs2.(χ)
+    χ = zeropaddeddft(ψ2,Pbig)
+    χsq += abs2.(χ)
+	
+    return (inv(Pbig)*χsq)*DΣ/2 |> fftshift
+end
+
+function auto_correlate_batch(ψ1,ψ2,ψ3,X,K,Pbig)
+    n = length(X)
+    DΣ = correlation_measure(X,K)
+    χ = zeropaddeddft(ψ1,Pbig)
+    χsq = abs2.(χ)
+    χ = zeropaddeddft(ψ2,Pbig)
+    χsq += abs2.(χ)
+    χ = zeropaddeddft(ψ3,Pbig)
+    χsq += abs2.(χ)
+	
+    return (inv(Pbig)*χsq)*DΣ/2 |> fftshift
+end
 
 @doc raw"""
 	cross_correlate(ψ,X,K)
@@ -742,13 +774,14 @@ function sinc_reduce_real(k,x,y,z,C)
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
     E = zero(k)
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
-	cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
     El = similar(hp)
+    q = k/π
     for i in eachindex(k)
-	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, Dr
-	    b[] = π*sinc(k[i]*gp/π)*dm*real(Dr)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
+	    b[] = sinc(q[i]*gp)*dm*real(D)
 	end
-	E[i] = @fastmath sum(El)*k[i]^2*dx*dy*dz/2/pi^2
+	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
     end
     return E 
 end
@@ -764,14 +797,15 @@ function sinc_reduce_complex(k,x,y,z,C)
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
     E = zero(k)
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
-	cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
     El = similar(hp)
+    q = k/π
     for i in eachindex(k)
 	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
-	    b[] = π*sinc(k[i]*gp/π)*dm*real(D)
+	    b[] = sinc(q[i]*gp)*dm*real(D)
 	end
-	E[i] = @fastmath sum(El)*k[i]^2*dx*dy*dz/2/pi^2
-	E[i] += @fastmath sum(π*sinc(k[i]*hp[:,:,1]/π)*cm[:,:,1]*imag(D[:,:,1]) + π*sinc(k[i]*hp[:,:,Nz÷2+1]/π)*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*k[i]^2*dx*dy*dz/2/pi^2
+	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
+	E[i] += @fastmath sum(sinc(q[i]*hp[:,:,1])*cm[:,:,1]*imag(D[:,:,1]) + sinc(q[i]*hp[:,:,Nz÷2+1])*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*π*q[i]^2*dx*dy*dz/2
     end
     return E 
 end
@@ -1389,21 +1423,16 @@ function decomposed_spectra(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     wx,wy,wz = weightedvelocity(P,psi)
     Wi, Wc = helmholtz(P[1],wx,wy,wz,K...)
+
     wx,wy,wz = Wi
-
-	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
     εki = sinc_reduce_real(k,X...,C)
-	wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
-	εkc = sinc_reduce_real(k,X...,C)
-	return εki, εkc
+    wx,wy,wz = Wc
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
+    εkc = sinc_reduce_real(k,X...,C)
+	
+    return εki, εkc
 end
 
 function decomposed_spectra(k,psi::Psi_qper2{2})
@@ -1476,21 +1505,16 @@ function decomposed_current_spectra(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     jx,jy,jz = current(P,psi)
     Ji, Jc = helmholtz(P[1],jx,jy,jz,K...)
+
     jx,jy,jz = Ji
-
-	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(jx,jy,jz,X,K,P[2])[:,:,1:length(X[3])+1]
     jci = sinc_reduce_real(k,X...,C)
-	jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
-    jcc = sinc_reduce_real(k,X...,C)
-	return jci, jcc
+    jx,jy,jz = Jc
+    C = auto_correlate_batch(jx,jy,jz,X,K,P[2])[:,:,1:length(X[3])+1]
+    jci = sinc_reduce_real(k,X...,C)
+	
+    return jci, jcc
 end
 
 function decomposed_current_spectra(k,psi::Psi_qper2{2})
@@ -1577,11 +1601,8 @@ function qpressure_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy,wz = gradient(P,psia)
-
-	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+	
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
