@@ -118,7 +118,7 @@ function current(psi::Psi{3})
 	return jx,jy,jz
 end
 
-function current(, psi::Psi{1})
+function current(P, psi::Psi{1})
 	@unpack ψ = psi 
 	ψx = gradient(P, psi)
 	jx = @. imag(conj(ψ)*ψx)
