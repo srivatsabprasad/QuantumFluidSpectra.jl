@@ -160,21 +160,41 @@ function correlation_measure(X,K)
 end
 
 """
-    P = fft_planner(X,K)
+    P = fft_planner(X,K,f,wisdom=nothing)
 
-Evalutes tuple of planners for FFTs for dimensions 1, 2, 3, relevant for periodic boundary conditions.
+Evalutes tuple of planners for FFTs for dimensions 1, 2, 3.
+f can equal "e" (uses FFTW.ESTIMATE), "m" (uses FFTW.MEASURE), or "p" (uses FFTW.PATIENT)
+It is strongly recommended that you create a wisdom file in your home directory (say, ~/fftw_wisdom)
+if one does not already exist and pass it to fft_planner as wisdom = "path_to_wisdom".
+If the wisdom file does not contain an FFT plan for the array sizes you are using, it is recommended
+that you select f = "m" or "p" and then run FFTW.export_wisdom(path_to_wisdom).
+N.B. Do NOT select f = "p" without passing a valid wisdom file path and do NOT do so if FFTW.PATIENT
+plans already exist for the arrays under consideration; otherwise you will waste a LOT of time.
 """
-function fft_planner(X,K)
-    M = length(X)
-    if M == 1
-        planstate[i,j,k] = exp.(im*K[1][2]*X[1]);
-    elseif M == 2
-        @tullio planstate[i,j] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j];
-    elseif M == 3
-        @tullio planstate[i,j,k] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j]*exp.(im*K[3][2]*X[3])[k];
-    end
-    Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.MEASURE);
-    Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.MEASURE);
-    return (Pall, Pbig)
+function fft_planner(X,K,f,wisdom=nothing)
+           M = length(X)
+           if M == 1
+               planstate[i,j,k] = exp.(im*K[1][2]*X[1]);
+           elseif M == 2
+               @tullio planstate[i,j] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j];
+           elseif M == 3
+               @tullio planstate[i,j,k] := exp.(im*K[1][2]*X[1])[i]*exp.(im*K[2][2]*X[2])[j]*exp.(im*K[3][2]*X[3])[k];
+           end
+           if !isnothing(wisdom)
+               FFTW.import_wisdom(wisdom)
+           end
+           if f == "e"
+               Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.ESTIMATE);
+               Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.ESTIMATE);
+           elseif f == "m"
+               Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.MEASURE);
+               Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.MEASURE);
+           elseif f == "p"
+               Pall = FFTW.plan_fft(copy(planstate), flags=FFTW.PATIENT);
+               Pbig = FFTW.plan_fft(zeropad(planstate), flags=FFTW.PATIENT);
+               if !isnothing(wisdom)
+                   FFTW.import_wisdom(wisdom)
+               end
+           end
+       return (Pall, Pbig)
 end
-
