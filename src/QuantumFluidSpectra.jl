@@ -1,5 +1,6 @@
 module QuantumFluidSpectra
 
+using LinearAlgebra
 using Tullio
 using FFTW 
 using SpecialFunctions
