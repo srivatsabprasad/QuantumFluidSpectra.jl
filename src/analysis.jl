@@ -675,6 +675,11 @@ function auto_correlate(ψ,X,K,Pbig)
 	return (inv(Pbig)*abs2.(χ))*DΣ |> fftshift
 end
 
+@doc raw"""
+	auto_correlate_batch(ψ1,ψ2,X,K)
+
+Sum two autocorrelations and divide the result by two.
+"""
 function auto_correlate_batch(ψ1,ψ2,X,K,Pbig)
     n = length(X)
     DΣ = correlation_measure(X,K)
@@ -686,6 +691,11 @@ function auto_correlate_batch(ψ1,ψ2,X,K,Pbig)
     return (inv(Pbig)*χsq)*DΣ/2 |> fftshift
 end
 
+@doc raw"""
+	auto_correlate_batch(ψ1,ψ2,ψ3,X,K)
+
+Sum three autocorrelations and divide the result by two.
+"""
 function auto_correlate_batch(ψ1,ψ2,ψ3,X,K,Pbig)
     n = length(X)
     DΣ = correlation_measure(X,K)
@@ -697,6 +707,40 @@ function auto_correlate_batch(ψ1,ψ2,ψ3,X,K,Pbig)
     χsq += abs2.(χ)
 	
     return (inv(Pbig)*χsq)*DΣ/2 |> fftshift
+end
+
+@doc raw"""
+	auto_correlate_batch_nopad(ψ1,ψ2,X,K)
+
+Sum two nonpadded autocorrelations and divide the result by two.
+"""
+function auto_correlate_batch_nopad(ψ1,ψ2,X,K,Pall)
+    n = length(X)
+    DΣ = correlation_measure(X,K)
+    χ = Pall*ψ1
+    χsq = abs2.(χ)
+    mul!(χ, Pall, ψ2)
+    χsq += abs2.(χ)
+	
+    return (inv(Pall)*χsq)*DΣ/2 |> fftshift
+end
+
+@doc raw"""
+	auto_correlate_batch_nopad(ψ1,ψ2,ψ3,X,K)
+
+Sum three nonpadded autocorrelations and divide the result by two.
+"""
+function auto_correlate_batch_nopad(ψ1,ψ2,ψ3,X,K,Pall)
+    n = length(X)
+    DΣ = correlation_measure(X,K)
+    χ = Pall*ψ1
+    χsq = abs2.(χ)
+    mul!(χ, Pall, ψ2)
+    χsq += abs2.(χ)
+    mul!(χ, Pall, ψ3)
+    χsq += abs2.(χ)
+	
+    return (inv(Pall)*χsq)*DΣ/2 |> fftshift
 end
 
 @doc raw"""
@@ -797,6 +841,39 @@ function sinc_reduce_complex(k,x,y,z,C)
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
     E = zero(k)
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
+    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp)
+    q = k/π
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
+	    b[] = sinc(q[i]*gp)*dm*real(D)
+	end
+	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
+	E[i] += @fastmath sum(sinc(q[i]*hp[:,:,1])*cm[:,:,1]*imag(D[:,:,1]) + sinc(q[i]*hp[:,:,Nz÷2+1])*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*π*q[i]^2*dx*dy*dz/2
+    end
+    return E 
+end
+
+function sinc_reduce_real_nopad(k,x,y,z,C)
+    Nz = length(z)
+    E = zero(k)
+    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(z[1:Nz÷2+1].*ones(Nz÷2+1,1,1),[3 2 1]).^2)
+    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp)
+    q = k/π
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
+	    b[] = sinc(q[i]*gp)*dm*real(D)
+	end
+	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
+    end
+    return E 
+end
+
+function sinc_reduce_complex_nopad(k,x,y,z,C)
+    Nz = length(z)
+    E = zero(k)
+    hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(z[1:Nz÷2+1].*ones(Nz÷2+1,1,1),[3 2 1]).^2)
     cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
     El = similar(hp)
     q = k/π
@@ -1476,6 +1553,30 @@ function decomposed_spectra(k,psi::Psi_qper3{3})
 end
 
 """
+	decomposed_spectra_nopad(P,k,ψ)
+
+Caculate both the incompressible and compressible kinetic energy spectra for wavefunction ``\\psi``, via Helmholtz decomposition.
+Does not zeropad ψ.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+
+function decomposed_spectra_nopad(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    wx,wy,wz = weightedvelocity(P,psi)
+    Wi, Wc = helmholtz(P[1],wx,wy,wz,K...)
+
+    wx,wy,wz = Wi
+    C = auto_correlate_batch_nopad(wx,wy,wz,X,K,P[1])[:,:,1:length(X[3])+1]
+    εki = sinc_reduce_real_nopad(k,X...,C)
+
+    wx,wy,wz = Wc
+    C = auto_correlate_batch_nopad(wx,wy,wz,X,K,P[1])[:,:,1:length(X[3])+1]
+    εkc = sinc_reduce_real_nopad(k,X...,C)
+	
+    return εki, εkc
+end
+
+"""
 	decomposed_current_spectra(k,ψ,X,K)
 
 Caculate both the incompressible and compressible current correlation spectra for wavefunction ``\\psi``, via Helmholtz decomposition.
@@ -1558,6 +1659,30 @@ function decomposed_current_spectra(k,psi::Psi_qper3{3})
 end
 
 """
+	decomposed_current_spectra_nopad(P,k,ψ)
+
+Caculate both the incompressible and compressible current correlation spectra for wavefunction ``\\psi``, via Helmholtz decomposition.
+Does not zeropad ψ.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+
+function decomposed_current_spectra_nopad(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    jx,jy,jz = current(P,psi)
+    Ji, Jc = helmholtz(P[1],jx,jy,jz,K...)
+
+    jx,jy,jz = Ji
+    C = auto_correlate_batch_nopad(jx,jy,jz,X,K,P[1])[:,:,1:length(X[3])+1]
+    jci = sinc_reduce_real_nopad(k,X...,C)
+
+    jx,jy,jz = Jc
+    C = auto_correlate_batch_nopad(jx,jy,jz,X,K,P[1])[:,:,1:length(X[3])+1]
+    jci = sinc_reduce_real_nopad(k,X...,C)
+	
+    return jci, jcc
+end
+
+"""
 	qpressure_spectrum(k,psi::Psi{D})
 
 Caculate the quantum pressure correlation spectrum for wavefunction ``\\psi``.
@@ -1627,6 +1752,24 @@ function qpressure_spectrum(k,psi::Psi_qper3{3})
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     return sinc_reduce_real(k,X...,C)
+end
+
+"""
+	qpressure_spectrum_nopad(P,k,ψ)
+
+Caculate the quantum pressure correlation spectrum for wavefunction ``\\psi``.
+Does not zeropad ψ.
+Input arrays `X`, `K` must be computed using `makearrays`.
+"""
+
+function qpressure_spectrum_nopad(P,k,psi::Psi{3})
+    @unpack ψ,X,K = psi
+    psia = Psi(abs.(ψ) |> complex,X,K)
+    wx,wy,wz = gradient(P,psia)
+
+    wx,wy,wz = Wi
+    C = auto_correlate_batch_nopad(wx,wy,wz,X,K,P[1])[:,:,1:length(X[3])+1]
+    return sinc_reduce_real_nopad(k,X...,C)
 end
 
 """
