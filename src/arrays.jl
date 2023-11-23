@@ -214,7 +214,7 @@ function fft_planner(X,K,f,wisdom=nothing)
                     end
                 end
                if !isnothing(wisdom)
-                   FFTW.import_wisdom(wisdom)
+                   FFTW.export_wisdom(wisdom)
                end
            end
        if M == 0
