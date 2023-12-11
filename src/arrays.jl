@@ -217,9 +217,9 @@ function fft_planner(X,K,f,wisdom=nothing)
                    FFTW.export_wisdom(wisdom)
                end
            end
-       if M == 0
+       if M == 1
             return (Pall, Pbig, Px)
-        elseif M == 1
+        elseif M == 2
             return (Pall, Pbig, Px, Py)
         else
             return (Pall, Pbig, Px, Py, Pz)
