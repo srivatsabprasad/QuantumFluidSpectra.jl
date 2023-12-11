@@ -293,7 +293,7 @@ function weightedvelocity(psi::Psi{2},Ω = 0)
 	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
     	@. wx[isnan(wx)] = zero(wx[1])
     	@. wy[isnan(wy)] = zero(wy[1])
-	return vx,vy
+	return wx,wy
 end
 
 function weightedvelocity(psi::Psi{3})
