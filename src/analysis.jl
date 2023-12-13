@@ -839,17 +839,17 @@ function sinc_reduce_complex(k,x,y,z,C)
     xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
     yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
-    E = zero(k)
+    E = zero(k .+ 0im)
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
-    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
-    El = similar(hp)
+    cmr = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    cmi = ones(Nx,Ny).*cat(1,fill(0,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp .+ 0im)
     q = k/π
     for i in eachindex(k)
-	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
-	    b[] = sinc(q[i]*gp)*dm*real(D)
+	ThreadsX.foreach(referenceable(El), hp, cmr, cmi, C) do b, gp, dmr, dmi, D
+	    b[] = sinc(q[i]*gp)*(dmr*real(D) + im*dmi*imag(D))
 	end
 	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
-	E[i] += @fastmath sum(sinc(q[i]*hp[:,:,1])*cm[:,:,1]*imag(D[:,:,1]) + sinc(q[i]*hp[:,:,Nz÷2+1])*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*π*q[i]^2*dx*dy*dz/2
     end
     return E 
 end
@@ -872,17 +872,17 @@ end
 
 function sinc_reduce_complex_nopad(k,x,y,z,C)
     Nz = length(z)
-    E = zero(k)
+    E = zero(k .+ 0im)
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(z[1:Nz÷2+1].*ones(Nz÷2+1,1,1),[3 2 1]).^2)
-    cm = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
-    El = similar(hp)
+    cmr = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
+    cmi = ones(Nx,Ny).*cat(1,fill(-,(1,1,Nz÷2-1)),1,dims=3)
+    El = similar(hp .+ 0im)
     q = k/π
     for i in eachindex(k)
-	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
-	    b[] = sinc(q[i]*gp)*dm*real(D)
+	ThreadsX.foreach(referenceable(El), hp, cmr, cmi, C) do b, gp, dmr, dmi, D
+	    b[] = sinc(q[i]*gp)*(dmr*real(D) + im*dmi*imag(D))
 	end
 	E[i] = @fastmath sum(El)*q[i]^2*π*dx*dy*dz/2
-	E[i] += @fastmath sum(sinc(q[i]*hp[:,:,1])*cm[:,:,1]*imag(D[:,:,1]) + sinc(q[i]*hp[:,:,Nz÷2+1])*cm[:,:,Nz÷2+1]*imag(D[:,:,Nz÷2+1]))*π*q[i]^2*dx*dy*dz/2
     end
     return E 
 end
