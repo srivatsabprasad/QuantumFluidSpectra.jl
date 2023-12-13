@@ -1001,8 +1001,8 @@ wave_action(k,psi::Psi{2}) = kdensity(k,psi::Psi{2}) ./k
 wave_action(k,psi::Psi{3}) = kdensity(k,psi::Psi{3})./k^2
 wave_action(P,k,psi::Psi{2}) = kdensity(P,k,psi::Psi{2}) ./k 
 wave_action(P,k,psi::Psi{3}) = kdensity(P,k,psi::Psi{3})./k^2
-wave_action_qper(k,psi::Psi_qper2{2}) = kdensity_qper(k,psi::Psi_qper2{2}) ./k 
-wave_action_qper(k,psi::Psi_qper3{3}) = kdensity_qper(k,psi::Psi_qper3{3})./k^2
+#wave_action_qper(k,psi::Psi_qper2{2}) = kdensity_qper(k,psi::Psi_qper2{2}) ./k 
+#wave_action_qper(k,psi::Psi_qper3{3}) = kdensity_qper(k,psi::Psi_qper3{3})./k^2
 
 """
 	full_spectrum(k,ψ)
