@@ -928,7 +928,7 @@ function kinetic_density(P,k,psi::Psi{3})
     cy = auto_correlate(ψy,X,K,P[2])[:,:,1:length(X[3])+1]
     cz = auto_correlate(ψz,X,K,P[2])[:,:,1:length(X[3])+1]
     C = @. 0.5(cx + cy + cz)
-    return sinc_reduce_complex(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 function kinetic_density(k,psi::Psi_qper2{2})
@@ -977,7 +977,7 @@ end
 function kdensity(P,k,psi::Psi{3})  
     @unpack ψ,X,K = psi; 
 	C = auto_correlate(ψ,X,K,P[2])[:,:,1:length(X[3])+1]
-    return sinc_reduce_complex(k,X...,C)
+    return sinc_reduce_real(k,X...,C)
 end
 
 function kdensity(k,psi::Psi_qper2{2})  
