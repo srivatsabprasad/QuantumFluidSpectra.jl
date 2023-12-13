@@ -55,5 +55,6 @@ export incompressible_current_spectrum, compressible_current_spectrum, decompose
 export incompressible_density, incompressible_density_qper, compressible_density, compressible_density_qper, qpressure_density
 export ic_density, ic_density_qper, iq_density, iq_density_qper, cq_density, cq_density_qper
 export density_spectrum, trap_spectrum
+export kdensity, wave_action
 
 end
