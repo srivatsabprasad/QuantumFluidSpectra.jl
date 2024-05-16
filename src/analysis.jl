@@ -383,9 +383,9 @@ Returned fields `Wi`, `Wc` are tuples of cartesian components of incompressible 
 """
 function helmholtz(wx, wy, kx, ky)
     wxk = fft(wx); wyk = fft(wy)
-    @cast kw[i,j] := (kx[i] * wxk[i,j] + ky[j] * wyk[i,j])/ (kx[i]^2+ky[j]^2)
-    @cast wxkc[i,j] := kw[i,j] * kx[i] 
-    @cast wykc[i,j] := kw[i,j] * ky[j]
+    kw = @. (kx * wxk + ky' * wyk)/ (kx^2+ky'^2)
+    wxkc = @. kw*kx
+    wykc = @. kw*ky'
     wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1])
     wxki = @. wxk - wxkc
     wyki = @. wyk - wykc
@@ -397,10 +397,11 @@ end
 
 function helmholtz(wx, wy, wz, kx, ky, kz)
     wxk = fft(wx); wyk = fft(wy); wzk = fft(wz)
-    @cast kw[i,j,k] := (kx[i] * wxk[i,j,k] + ky[j] * wyk[i,j,k] + kz[k] * wzk[i,j,k])/ (kx[i]^2 + ky[j]^2 + kz[k]^2)
-    @cast wxkc[i,j,k] := kw[i,j,k] * kx[i]  
-    @cast wykc[i,j,k] := kw[i,j,k] * ky[j] 
-    @cast wzkc[i,j,k] := kw[i,j,k] * kz[k]  
+    kzr = reshape(kz,1,1,length(kz))
+    kw = @. (kx * wxk + ky' * wyk + kzr * wzk)/ (kx^2 + ky'^2 + kzr^2)
+    wxkc = @. kw * kx  
+    wykc = @. kw * ky'
+    wzkc = @. kw * kzr  
     wxkc[1] = zero(wxkc[1]); wykc[1] = zero(wykc[1]); wzkc[1] = zero(wzkc[1])
     wxki = @. wxk - wxkc
     wyki = @. wyk - wykc
@@ -413,9 +414,12 @@ end
 
 function helmholtz(Pall, wx, wy, kx, ky)
     wxk = Pall*wx; wyk = Pall*wy
-    @cast kw[i,j] := (kx[i] * wxk[i,j] + ky[j] * wyk[i,j])/ (kx[i]^2+ky[j]^2)
-    @cast dumx[i,j] := kw[i,j] * kx[i] 
-    @cast dumy[i,j] := kw[i,j] * ky[j]
+    kw = @. (kx * wxk + ky' * wyk)/ (kx^2+ky'^2)
+    wxkc = @. kw*kx
+    wykc = @. kw*ky'
+    kw = @. (kx * wxk + ky' * wyk)/ (kx^2+ky'^2)
+    dumx = @. kw*kx
+    dumy = @. kw*ky'
     dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1])
 	wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy;
 	wxk -= dumx
@@ -427,10 +431,11 @@ end
 
 function helmholtz(Pall, wx, wy, wz, kx, ky, kz)
     wxk = Pall*wx; wyk = Pall*wy; wzk = Pall*wz
-    @cast kw[i,j,k] := (kx[i] * wxk[i,j,k] + ky[j] * wyk[i,j,k] + kz[k] * wzk[i,j,k])/ (kx[i]^2 + ky[j]^2 + kz[k]^2)
-    @cast dumx[i,j,k] := kw[i,j,k] * kx[i]  
-    @cast dumy[i,j,k] := kw[i,j,k] * ky[j] 
-    @cast dumz[i,j,k] := kw[i,j,k] * kz[k]  
+    kzr = reshape(kz,1,1,length(kz))
+    kw = @. (kx * wxk + ky' * wyk + kzr * wzk)/ (kx^2 + ky'^2 + kzr^2)
+    dumx = @. kw * kx
+    dumy = @. kw * ky'
+    dumz = @. kw * kzr  
     dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1]); dumz[1] = zero(dumz[1])
     wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy; wzc = inv(Pall)*dumz
 	wxk -= dumx
@@ -954,7 +959,7 @@ end
 	kdensity(k,ψ,X,K)
 
 Calculates the angle integrated momentum density ``|\\phi(k)|^2``, at the
-points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber.  Arrays `X`, `K` should be computed using `makearrays`.
+points `k`, with the usual radial weight in `k` space ensuring normalization under ∫dk. Units will be population per wavenumber. Units will be population per wavenumber. Arrays `X`, `K` should be computed using `makearrays`.
 """
 function kdensity(k,psi::Psi{2})  
     @unpack ψ,X,K = psi; 
