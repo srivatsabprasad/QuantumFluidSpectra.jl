@@ -2,11 +2,11 @@ module QuantumFluidSpectra
 
 using LinearAlgebra
 using Tullio
+using Hwloc
 using FFTW 
 using SpecialFunctions
 using PaddedViews
 using UnPack
-using TensorCast
 using ThreadsX
 using Referenceables
 
