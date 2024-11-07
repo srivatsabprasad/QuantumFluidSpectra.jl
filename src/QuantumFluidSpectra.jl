@@ -10,8 +10,6 @@ using UnPack
 using ThreadsX
 using Referenceables
 
-FFTW.set_num_threads(Threads.nthreads())
-
 # fallback since fast_hypot is 2 argument only
 @fastmath hypot(x::Float64, y::Float64, z::Float64)=sqrt(x^2+y^2+z^2)
 export hypot 
