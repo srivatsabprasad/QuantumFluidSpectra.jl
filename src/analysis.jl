@@ -797,6 +797,48 @@ function bessel_reduce(k,x,y,C)
     return E 
 end
 
+function bessel_reduce_real(k,x,y,C)
+    dx,dy = x[2]-x[1],y[2]-y[1]
+    Nx,Ny = 2*length(x),2*length(y)
+    Lx = x[end] - x[begin] + dx
+    Ly = y[end] - y[begin] + dy
+    xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
+    yq = LinRange(-Ly,Ly,Ny+1)[1:Ny÷2+1]
+    E = zero(k)
+    hp = sqrt.(xp.^2 .+ yq'.^2)
+    cm = ones(Nx).*hcat(1,fill(2,(1,Ny÷2-1)),1)
+    El = similar(hp)
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hp, cm, C) do b, gp, dm, D
+	    b[] = besselj0(k[i]*gp)*dm*real(D)
+	end
+	E[i] = @fastmath sum(El)*k[i]*dx*dy/(2π)
+    end
+    return E 
+end
+
+function bessel_reduce_complex(k,x,y,C)
+    dx,dy = x[2]-x[1],y[2]-y[1]
+    Nx,Ny = 2*length(x),2*length(y)
+    Lx = x[end] - x[begin] + dx
+    Ly = y[end] - y[begin] + dy
+    xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
+    yq = LinRange(-Ly,Ly,Ny+1)[1:Ny÷2+1]
+    E = zeros(ComplexF64, size(k))
+    hp = sqrt.(xp.^2 .+ yq'.^2)
+    cmr = ones(Nx).*hcat(1,fill(2,(1,Ny÷2-1)),1)
+    cmi = ones(Nx).*hcat(1,fill(0,(1,Ny÷2-1)),1)
+    El = similar(hp .+ 0im)
+    q = k/π
+    for i in eachindex(k)
+	ThreadsX.foreach(referenceable(El), hp, cmr, cmi, C) do b, gp, dmr, dmi, D
+	    b[] = besselj0(k[i]*gp)*(dmr*real(D) + im*dmi*imag(D))
+	end
+	E[i] = @fastmath sum(El)*k[i]*dx*dy/(2π)
+    end
+    return E 
+end
+
 function sinc_reduce(k,x,y,z,C)
     dx,dy,dz = x[2]-x[1],y[2]-y[1],z[2]-z[1]
     Nx,Ny,Nz = 2*length(x),2*length(y),2*length(z)
@@ -844,7 +886,7 @@ function sinc_reduce_complex(k,x,y,z,C)
     xp = LinRange(-Lx,Lx,Nx+1)[1:Nx]
     yq = LinRange(-Ly,Ly,Ny+1)[1:Ny]
     zr = LinRange(-Lz,Lz,Nz+1)[1:Nz÷2+1]
-    E = zero(k .+ 0im)
+    E = zeros(ComplexF64, size(k))
     hp = sqrt.(xp.^2 .+ yq'.^2 .+ permutedims(zr.*ones(Nz÷2+1,1,1),[3 2 1]).^2)
     cmr = ones(Nx,Ny).*cat(1,fill(2,(1,1,Nz÷2-1)),1,dims=3)
     cmi = ones(Nx,Ny).*cat(1,fill(0,(1,1,Nz÷2-1)),1,dims=3)
@@ -920,8 +962,8 @@ end
 function kinetic_density(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient(P,psi)
-    C = auto_correlate_batch(ψx,ψy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(ψx,ψy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function kinetic_density(P,k,psi::Psi{3})
@@ -934,10 +976,10 @@ end
 function kinetic_density(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient_qper(psi)
-    cx = auto_correlate(ψx,X,K)
-    cy = auto_correlate(ψy,X,K)
+    cx = auto_correlate(ψx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(ψy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_complex(k,X...,C)
 end
 
 function kinetic_density(k,psi::Psi_qper3{3})
@@ -970,8 +1012,8 @@ end
 
 function kdensity(P,k,psi::Psi{2})  
     @unpack ψ,X,K = psi; 
-    C = auto_correlate(ψ,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate(ψ,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function kdensity(P,k,psi::Psi{3})  
@@ -982,8 +1024,8 @@ end
 
 function kdensity(k,psi::Psi_qper2{2})  
     @unpack ψ,X,K = psi; 
-    C = auto_correlate(ψ,X,K)
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate(ψ,X,K)[:,1:length(X[2])+1]
+    return bessel_reduce_complex(k,X...,C)
 end
 
 function kdensity(k,psi::Psi_qper3{3})  
@@ -1035,8 +1077,8 @@ function full_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
     wx,wy = weightedvelocity(P,psi,Ω)
 
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function full_spectrum(P,k,psi::Psi{3})
@@ -1051,10 +1093,10 @@ function full_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     wx,wy = weightedvelocity_qper(psi)
 
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function full_spectrum(k,psi::Psi_qper3{3})
@@ -1099,8 +1141,8 @@ function full_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
     jx,jy = current(P,psi,Ω)
 
-    C = auto_correlate_batch(jx,jy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function full_current_spectrum(P,k,psi::Psi{3})
@@ -1115,10 +1157,10 @@ function full_current_spectrum(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi;  
     jx,jy = current_qper(psi)
 
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(jy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function full_current_spectrum(k,psi::Psi_qper3{3})
@@ -1169,8 +1211,8 @@ function incompressible_spectrum(P,k,psi::Psi{2},Ω=0.0)
     Wi, _ = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wi
 
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function incompressible_spectrum(P,k,psi::Psi{3})
@@ -1191,10 +1233,10 @@ function incompressible_spectrum(k,psi::Psi_qper2{2})
     Wi, _ = helmholtz(wx,wy,K...)
     wx,wy = Wi
 
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function incompressible_spectrum(k,psi::Psi_qper3{3})
@@ -1249,8 +1291,8 @@ function incompressible_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     Ji, _ = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
-    C = auto_correlate_batch(jx,jy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function incompressible_current_spectrum(P,k,psi::Psi{3})
@@ -1269,10 +1311,10 @@ function incompressible_current_spectrum(k,psi::Psi_qper2{2})
     Ji, _ = helmholtz(jx,jy,K...)
     jx,jy = Ji
 
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(jy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function incompressible_current_spectrum(k,psi::Psi_qper3{3})
@@ -1325,8 +1367,8 @@ function compressible_spectrum(P,k,psi::Psi{2})
     _, Wc = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wc
 
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function compressible_spectrum(P,k,psi::Psi{3})
@@ -1345,10 +1387,10 @@ function compressible_spectrum(k,psi::Psi_qper2{2})
     _, Wc = helmholtz(wx,wy,K...)
     wx,wy = Wc
 
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function compressible_spectrum(k,psi::Psi_qper3{3})
@@ -1401,8 +1443,8 @@ function compressible_current_spectrum(P,k,psi::Psi{2})
     _, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Jc
 
-    C = auto_correlate_batch(jx,jy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function compressible_current_spectrum(P,k,psi::Psi{3})
@@ -1421,10 +1463,10 @@ function compressible_current_spectrum(k,psi::Psi_qper2{2})
     _, Jc = helmholtz(jx,jy,K...)
     jx,jy = Jc
 
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(jy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function compressible_current_spectrum(k,psi::Psi_qper3{3})
@@ -1453,12 +1495,12 @@ function decomposed_spectra(P,k,psi::Psi{2})
     Wi, Wc = helmholtz(P[1],wx,wy,K...)
     
     wx,wy = Wi
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    εki = bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    εki = bessel_reduce_real(k,X...,C)
 	
     wx,wy = Wc
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    εkc = bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    εkc = bessel_reduce_real(k,X...,C)
     
     return εki, εkc
 end
@@ -1485,16 +1527,16 @@ function decomposed_spectra(k,psi::Psi_qper2{2})
     Wi, Wc = helmholtz(wx,wy,K...)
 
     wx,wy = Wi
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    εki = bessel_reduce(k,X...,C)
+    εki = bessel_reduce_real(k,X...,C)
     
     wx,wy = Wc
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    εki = bessel_reduce(k,X...,C)
+    εki = bessel_reduce_real(k,X...,C)
     
     return εki, εkc
 end
@@ -1558,12 +1600,12 @@ function decomposed_current_spectra(P,k,psi::Psi{2})
     Ji, Jc = helmholtz(P[1],jx,jy,K...)
 
     jx,jy = Ji
-    C = auto_correlate_batch(jx,jy,X,K,P[2])
-    jci = bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])[:,1:length(X[2])+1]
+    jci = bessel_reduce_real(k,X...,C)
 
     jx,jy = Jc
-    C = auto_correlate_batch(jx,jy,X,K,P[2])
-    jcc = bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])[:,1:length(X[2])+1]
+    jcc = bessel_reduce_real(k,X...,C)
     return jci, jcc
 end
 
@@ -1589,16 +1631,16 @@ function decomposed_current_spectra(k,psi::Psi_qper2{2})
     Ji, Jc = helmholtz(jx,jy,K...)
 
     jx,jy = Ji
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(jy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    jci = bessel_reduce(k,X...,C)
+    jci = bessel_reduce_real(k,X...,C)
 
     jx,jy = Jc
-    cx = auto_correlate(jx,X,K)
-    cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(jy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    jcc = bessel_reduce(k,X...,C)
+    jcc = bessel_reduce_real(k,X...,C)
 
     return jci, jcc
 end
@@ -1683,8 +1725,8 @@ function qpressure_spectrum(P,k,psi::Psi{2})
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy = gradient(P,psia)
 
-    C = auto_correlate_batch(wx,wy,X,K,P[2])
-    return bessel_reduce(k,X...,C)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])[:,1:length(X[2])+1]
+    return bessel_reduce_real(k,X...,C)
 end
 
 function qpressure_spectrum(P,k,psi::Psi{3})
@@ -1701,10 +1743,10 @@ function qpressure_spectrum(k,psi::Psi_qper2{2})
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy = gradient(psia)
 
-    cx = auto_correlate(wx,X,K)
-    cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)[:,1:length(X[2])+1]
+    cy = auto_correlate(wy,X,K)[:,1:length(X[2])+1]
     C = @. 0.5*(cx + cy)
-    return bessel_reduce(k,X...,C)
+    return bessel_reduce_real(k,X...,C)
 end
 
 function qpressure_spectrum(k,psi::Psi_qper3{3})
