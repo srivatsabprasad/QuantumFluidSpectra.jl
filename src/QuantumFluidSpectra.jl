@@ -42,7 +42,7 @@ include("analysis.jl")
 
 export Psi, Psi_qper2, Psi_qper3, xvecs, kvecs
 export auto_correlate, cross_correlate, auto_correlate_batch, auto_correlate_batch_nopad
-export bessel_reduce, sinc_reduce, sinc_reduce_real, sinc_reduce_complex, sinc_reduce_real_nopad, sinc_reduce_complex_nopad, gv, gv3
+export bessel_reduce, bessel_reduce_real, bessel_reduce_complex, sinc_reduce, sinc_reduce_real, sinc_reduce_complex, sinc_reduce_real_nopad, sinc_reduce_complex_nopad, gv, gv3
 export log10range, convolve
 
 export xk_arrays, xk_arrays0, fft_differentials, correlation_measure, fft_planner
