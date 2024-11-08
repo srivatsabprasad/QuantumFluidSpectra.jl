@@ -5,55 +5,55 @@ Compute the `D` vector gradient components of a wavefunction `Psi` of spatial di
 The `D` gradient components returned are `D`-dimensional arrays.
 """
 function gradient(psi::Psi{1})
-	@unpack ψ,K = psi; kx = K[1] 
-    	ϕ = fft(ψ)
-	ψx = ifft(im*kx.*ϕ)
+    @unpack ψ,K = psi; kx = K[1] 
+    ϕ = fft(ψ)
+    ψx = ifft(im*kx.*ϕ)
     return ψx
 end
 
 function gradient(psi::Psi{2})
-	@unpack ψ,K = psi; kx,ky = K 
-	ϕ = fft(ψ)
-	ψx = ifft(im*kx.*ϕ)
-	ψy = ifft(im*ky'.*ϕ)
-	return ψx,ψy
+    @unpack ψ,K = psi; kx,ky = K 
+    ϕ = fft(ψ)
+    ψx = ifft(im*kx.*ϕ)
+    ψy = ifft(im*ky'.*ϕ)
+    return ψx,ψy
 end
 
 
 function gradient(psi::Psi{3})
-	@unpack ψ,K = psi; kx,ky,kz = K 
-	ϕ = fft(ψ)
-	ψx = ifft(im*kx.*ϕ)
-	ψy = ifft(im*ky'.*ϕ)
-	ψz = ifft(im*reshape(kz,1,1,length(kz)).*ϕ)
-	return ψx,ψy,ψz
+    @unpack ψ,K = psi; kx,ky,kz = K 
+    ϕ = fft(ψ)
+    ψx = ifft(im*kx.*ϕ)
+    ψy = ifft(im*ky'.*ϕ)
+    ψz = ifft(im*reshape(kz,1,1,length(kz)).*ϕ)
+    return ψx,ψy,ψz
 end
 
 function gradient(P, psi::Psi{1})
-	@unpack ψ,K = psi; kx = K[1] 
-    	ϕ = P[3]*ψ
-	ψx = inv(P[3])*(im*kx.*ϕ)
+    @unpack ψ,K = psi; kx = K[1] 
+    ϕ = P[3]*ψ
+    ψx = inv(P[3])*(im*kx.*ϕ)
     return ψx
 end
 
 function gradient(P, psi::Psi{2})
-	@unpack ψ,K = psi; kx,ky = K 
-	ϕ = P[3]*ψ
-	ψx = inv(P[3])*(im*kx.*ϕ)
-	ϕ = P[4]*ψ
-	ψy = inv(P[4])*(im*ky'.*ϕ)
-	return ψx,ψy
+    @unpack ψ,K = psi; kx,ky = K 
+    ϕ = P[3]*ψ
+    ψx = inv(P[3])*(im*kx.*ϕ)
+    ϕ = P[4]*ψ
+    ψy = inv(P[4])*(im*ky'.*ϕ)
+    return ψx,ψy
 end
 
 function gradient(P, psi::Psi{3})
-	@unpack ψ,K = psi; kx,ky,kz = K 
-	ϕ = P[3]*ψ
-	ψx = inv(P[3])*(im*kx.*ϕ)
-	mul!(ϕ,P[4],ψ)
-	ψy = inv(P[4])*(im*ky'.*ϕ)
-	mul!(ϕ,P[5],ψ)
-	ψz = inv(P[5])*(im*reshape(kz,1,1,length(kz)).*ϕ)
-	return ψx,ψy,ψz
+    @unpack ψ,K = psi; kx,ky,kz = K 
+    ϕ = P[3]*ψ
+    ψx = inv(P[3])*(im*kx.*ϕ)
+    mul!(ϕ,P[4],ψ)
+    ψy = inv(P[4])*(im*ky'.*ϕ)
+    mul!(ϕ,P[5],ψ)
+    ψz = inv(P[5])*(im*reshape(kz,1,1,length(kz)).*ϕ)
+    return ψx,ψy,ψz
 end
 
 """
@@ -65,26 +65,26 @@ Uses quasiperiodic boundary conditions as determined by the circulation tuple `�
 This is not well-defined when D = 1.
 """
 function gradient_qper(psi::Psi_qper2{2})
-	@unpack ψ,X,K,Γ,s = psi; kx,ky = K; x,y = X
-	ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,[1])
-	ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,[2])
-	ψx = exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ifft(im*(kx .+ 2π*(Γ[1]*y' .- s[1])).*ϕ1,[1])
-	ψy = exp.(2im*π*s[1]*x).*ifft(im*(ky' .- 2π*Γ[1]*x).*ϕ2,[2])
-	return ψx,ψy
+    @unpack ψ,X,K,Γ,s = psi; kx,ky = K; x,y = X
+    ϕ1 = fft(exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ψ,[1])
+    ϕ2 = fft(exp.(2im*π*s[1]*x).*ψ,[2])
+    ψx = exp.(-2im*π*x.*(Γ[1]*y' .- s[1])).*ifft(im*(kx .+ 2π*(Γ[1]*y' .- s[1])).*ϕ1,[1])
+    ψy = exp.(2im*π*s[1]*x).*ifft(im*(ky' .- 2π*Γ[1]*x).*ϕ2,[2])
+    return ψx,ψy
 end
 
 function gradient_qper(psi::Psi_qper3{3})
-	@unpack ψ,X,K,Γ,s = psi; kx,ky,kz = K; x,y,z = X
-	ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,[1])
-	ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,[2])
-	ϕ3 = fft(exp.(2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3]))).*ψ,[3])
-	ψx = ifft(im*(kx.- 2π*(Γ[3]*reshape(z,1,1,length(z)) .- Γ[1]*y' .+ s[1])).*ϕ1,[1])
-	ψx .*= exp.(-2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1])))
-	ψy = ifft(im*(ky' .- 2π*(Γ[1]*x .- Γ[2]*reshape(z,1,1,length(z)) .+ s[2])).*ϕ2,[2])
-	ψy .*= exp.(-2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2])))
-	ψz = ifft(im*(reshape(kz,1,1,length(z)).- 2π*(Γ[2]*y' .- Γ[3]*x .+ s[3])).*ϕ3,[3])
-	ψz .*= exp.(-2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3])))
-	return ψx,ψy,ψz
+    @unpack ψ,X,K,Γ,s = psi; kx,ky,kz = K; x,y,z = X
+    ϕ1 = fft(exp.(2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1]))).*ψ,[1])
+    ϕ2 = fft(exp.(2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2]))).*ψ,[2])
+    ϕ3 = fft(exp.(2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3]))).*ψ,[3])
+    ψx = ifft(im*(kx.- 2π*(Γ[3]*reshape(z,1,1,length(z)) .- Γ[1]*y' .+ s[1])).*ϕ1,[1])
+    ψx .*= exp.(-2im*π*(s[3]*reshape(z,1,1,length(z)) .- x.*(Γ[1]*y' .- s[1])))
+    ψy = ifft(im*(ky' .- 2π*(Γ[1]*x .- Γ[2]*reshape(z,1,1,length(z)) .+ s[2])).*ϕ2,[2])
+    ψy .*= exp.(-2im*π*(s[1]*x .- y'.*(Γ[2]*reshape(z,1,1,length(z)) .- s[2])))
+    ψz = ifft(im*(reshape(kz,1,1,length(z)).- 2π*(Γ[2]*y' .- Γ[3]*x .+ s[3])).*ϕ3,[3])
+    ψz .*= exp.(-2im*π*(s[2]*y' .- reshape(z,1,1,length(z)).*(Γ[3]*x .- s[3])))
+    return ψx,ψy,ψz
 end
 
 """
@@ -94,53 +94,53 @@ Compute the `D` current components of an `Psi` of spatial dimension `D`.
 The `D` cartesian components returned are `D`-dimensional arrays.
 """
 function current(psi::Psi{1})
-	@unpack ψ = psi 
-	ψx = gradient(psi)
-	jx = @. imag(conj(ψ)*ψx)
+    @unpack ψ = psi 
+    ψx = gradient(psi)
+    jx = @. imag(conj(ψ)*ψx)
     return jx
 end
 
 function current(psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi 
-    	x,y = X
-    	ψx,ψy = gradient(psi)
-	jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
-	jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
-	return jx,jy
+    @unpack ψ,X = psi 
+    x,y = X
+    ψx,ψy = gradient(psi)
+    jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
+    jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
+    return jx,jy
 end
 
 function current(psi::Psi{3})
-    	@unpack ψ = psi 
-    	ψx,ψy,ψz = gradient(psi)
-	jx = @. imag(conj(ψ)*ψx)
-	jy = @. imag(conj(ψ)*ψy)
-	jz = @. imag(conj(ψ)*ψz)
-	return jx,jy,jz
+    @unpack ψ = psi 
+    ψx,ψy,ψz = gradient(psi)
+    jx = @. imag(conj(ψ)*ψx)
+    jy = @. imag(conj(ψ)*ψy)
+    jz = @. imag(conj(ψ)*ψz)
+    return jx,jy,jz
 end
 
 function current(P, psi::Psi{1})
-	@unpack ψ = psi 
-	ψx = gradient(P, psi)
-	jx = @. imag(conj(ψ)*ψx)
+    @unpack ψ = psi 
+    ψx = gradient(P, psi)
+    jx = @. imag(conj(ψ)*ψx)
     return jx
 end
 
 function current(P, psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi 
-    	x,y = X
-    	ψx,ψy = gradient(P, psi)
-	jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
-	jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
-	return jx,jy
+    @unpack ψ,X = psi 
+    x,y = X
+    ψx,ψy = gradient(P, psi)
+    jx = @. imag(conj(ψ)*ψx) + Ω*abs2(ψ)*y'  
+    jy = @. imag(conj(ψ)*ψy) - Ω*abs2(ψ)*x 
+    return jx,jy
 end
 
 function current(P, psi::Psi{3})
-    	@unpack ψ = psi 
-    	ψx,ψy,ψz = gradient(P, psi)
-	jx = @. imag(conj(ψ)*ψx)
-	jy = @. imag(conj(ψ)*ψy)
-	jz = @. imag(conj(ψ)*ψz)
-	return jx,jy,jz
+    @unpack ψ = psi 
+    ψx,ψy,ψz = gradient(P, psi)
+    jx = @. imag(conj(ψ)*ψx)
+    jy = @. imag(conj(ψ)*ψy)
+    jz = @. imag(conj(ψ)*ψz)
+    return jx,jy,jz
 end
 
 """
@@ -151,20 +151,20 @@ The `D` cartesian components returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
 """
 function current_qper(psi::Psi_qper2{2})
-	@unpack ψ = psi 
-    	ψx,ψy = gradient_qper(psi)
-	jx = @. imag(conj(ψ)*ψx)
-	jy = @. imag(conj(ψ)*ψy)
-	return jx,jy
+    @unpack ψ = psi 
+    ψx,ψy = gradient_qper(psi)
+    jx = @. imag(conj(ψ)*ψx)
+    jy = @. imag(conj(ψ)*ψy)
+    return jx,jy
 end
 
 function current_qper(psi::Psi_qper3{3})
-    	@unpack ψ = psi 
-    	ψx,ψy,ψz = gradient_qper(psi)
-	jx = @. imag(conj(ψ)*ψx)
-	jy = @. imag(conj(ψ)*ψy)
-	jz = @. imag(conj(ψ)*ψz)
-	return jx,jy,jz
+    @unpack ψ = psi 
+    ψx,ψy,ψz = gradient_qper(psi)
+    jx = @. imag(conj(ψ)*ψx)
+    jy = @. imag(conj(ψ)*ψy)
+    jz = @. imag(conj(ψ)*ψz)
+    return jx,jy,jz
 end
 
 """
@@ -174,69 +174,69 @@ Compute the `D` velocity components of an `Psi` of spatial dimension `D`.
 The `D` velocities returned are `D`-dimensional arrays.
 """
 function velocity(psi::Psi{1})
-	@unpack ψ = psi
-    	ψx = gradient(psi)
-	vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
-    	@. vx[isnan(vx)] = zero(vx[1])
-	return vx
+    @unpack ψ = psi
+    ψx = gradient(psi)
+    vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
+    @. vx[isnan(vx)] = zero(vx[1])
+    return vx
 end
 
 function velocity(psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi
-    	x,y = X
-    	ψx,ψy = gradient(psi)
-    	rho = abs2.(ψ)
-	vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
-	vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-	return vx,vy
+    @unpack ψ,X = psi
+    x,y = X
+    ψx,ψy = gradient(psi)
+    rho = abs2.(ψ)
+    vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
+    vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    return vx,vy
 end
 
 function velocity(psi::Psi{3})
-	@unpack ψ = psi
-	rho = abs2.(ψ)
-    	ψx,ψy,ψz = gradient(psi)
-	vx = @. imag(conj(ψ)*ψx)/rho
-	vy = @. imag(conj(ψ)*ψy)/rho
-	vz = @. imag(conj(ψ)*ψz)/rho
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-    	@. vz[isnan(vz)] = zero(vz[1])
-	return vx,vy,vz
+    @unpack ψ = psi
+    rho = abs2.(ψ)
+    ψx,ψy,ψz = gradient(psi)
+    vx = @. imag(conj(ψ)*ψx)/rho
+    vy = @. imag(conj(ψ)*ψy)/rho
+    vz = @. imag(conj(ψ)*ψz)/rho
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    @. vz[isnan(vz)] = zero(vz[1])
+    return vx,vy,vz
 end
 
 function velocity(P, psi::Psi{1})
-	@unpack ψ = psi
-    	ψx = gradient(P, psi)
-	vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
-    	@. vx[isnan(vx)] = zero(vx[1])
-	return vx
+    @unpack ψ = psi
+    ψx = gradient(P, psi)
+    vx = @. imag(conj(ψ)*ψx)/abs2(ψ)
+    @. vx[isnan(vx)] = zero(vx[1])
+    return vx
 end
 
 function velocity(P, psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi
-    	x,y = X
-    	ψx,ψy = gradient(P, psi)
-    	rho = abs2.(ψ)
-	vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
-	vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-	return vx,vy
+    @unpack ψ,X = psi
+    x,y = X
+    ψx,ψy = gradient(P, psi)
+    rho = abs2.(ψ)
+    vx = @. imag(conj(ψ)*ψx)/rho + Ω*y'  
+    vy = @. imag(conj(ψ)*ψy)/rho - Ω*x 
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    return vx,vy
 end
 
 function velocity(P, psi::Psi{3})
-	@unpack ψ = psi
-	rho = abs2.(ψ)
-    	ψx,ψy,ψz = gradient(P, psi)
-	vx = @. imag(conj(ψ)*ψx)/rho
-	vy = @. imag(conj(ψ)*ψy)/rho
-	vz = @. imag(conj(ψ)*ψz)/rho
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-    	@. vz[isnan(vz)] = zero(vz[1])
-	return vx,vy,vz
+    @unpack ψ = psi
+    rho = abs2.(ψ)
+    ψx,ψy,ψz = gradient(P, psi)
+    vx = @. imag(conj(ψ)*ψx)/rho
+    vy = @. imag(conj(ψ)*ψy)/rho
+    vz = @. imag(conj(ψ)*ψz)/rho
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    @. vz[isnan(vz)] = zero(vz[1])
+    return vx,vy,vz
 end
 
 """
@@ -247,27 +247,27 @@ The `D` velocities returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
 """
 function velocity_qper(psi::Psi_qper2{2})
-	@unpack ψ = psi
-    	ψx,ψy = gradient_qper(psi)
-    	rho = abs2.(ψ)
-	vx = @. imag(conj(ψ)*ψx)/rho
-	vy = @. imag(conj(ψ)*ψy)/rho 
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-	return vx,vy
+    @unpack ψ = psi
+    ψx,ψy = gradient_qper(psi)
+    rho = abs2.(ψ)
+    vx = @. imag(conj(ψ)*ψx)/rho
+    vy = @. imag(conj(ψ)*ψy)/rho 
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    return vx,vy
 end
 
 function velocity_qper(psi::Psi_qper3{3})
-	@unpack ψ = psi
-	rho = abs2.(ψ)
-    	ψx,ψy,ψz = gradient_qper(psi)
-	vx = @. imag(conj(ψ)*ψx)/rho
-	vy = @. imag(conj(ψ)*ψy)/rho
-	vz = @. imag(conj(ψ)*ψz)/rho
-    	@. vx[isnan(vx)] = zero(vx[1])
-    	@. vy[isnan(vy)] = zero(vy[1])
-    	@. vz[isnan(vz)] = zero(vz[1])
-	return vx,vy,vz
+    @unpack ψ = psi
+    rho = abs2.(ψ)
+    ψx,ψy,ψz = gradient_qper(psi)
+    vx = @. imag(conj(ψ)*ψx)/rho
+    vy = @. imag(conj(ψ)*ψy)/rho
+    vz = @. imag(conj(ψ)*ψz)/rho
+    @. vx[isnan(vx)] = zero(vx[1])
+    @. vy[isnan(vy)] = zero(vy[1])
+    @. vz[isnan(vz)] = zero(vz[1])
+    return vx,vy,vz
 end
 
 """
@@ -277,70 +277,70 @@ Compute the `D` weighted velocity, i.e. sqrt(n)*v, components of an `Psi` of spa
 The `D` velocities returned are `D`-dimensional arrays.
 """
 function weightedvelocity(psi::Psi{1})
-	@unpack ψ = psi
-    	ψx = gradient(psi)
-	wx = @. imag(conj(ψ)*ψx)/abs(ψ)
-    	@. wx[isnan(wx)] = zero(wx[1])
-	return wx
+    @unpack ψ = psi
+    ψx = gradient(psi)
+    wx = @. imag(conj(ψ)*ψx)/abs(ψ)
+    @. wx[isnan(wx)] = zero(wx[1])
+    return wx
 end
 
 function weightedvelocity(psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi
-    	x,y = X
-    	ψx,ψy = gradient(psi)
-    	rhosq = abs.(ψ)
-	wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq 
-	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-	return wx,wy
+    @unpack ψ,X = psi
+    x,y = X
+    ψx,ψy = gradient(psi)
+    rhosq = abs.(ψ)
+    wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq 
+    wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    return wx,wy
 end
 
 function weightedvelocity(psi::Psi{3})
-	@unpack ψ = psi
-	rhosq = abs.(ψ)
-    	ψx,ψy,ψz = gradient(psi)
-	wx = @. imag(conj(ψ)*ψx)/rhosq
-	wy = @. imag(conj(ψ)*ψy)/rhosq
-	wz = @. imag(conj(ψ)*ψz)/rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-    	@. wz[isnan(wz)] = zero(wz[1])
-	return wx,wy,wz
+    @unpack ψ = psi
+    rhosq = abs.(ψ)
+    ψx,ψy,ψz = gradient(psi)
+    wx = @. imag(conj(ψ)*ψx)/rhosq
+    wy = @. imag(conj(ψ)*ψy)/rhosq
+    wz = @. imag(conj(ψ)*ψz)/rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    @. wz[isnan(wz)] = zero(wz[1])
+    return wx,wy,wz
 end
 
 
 function weightedvelocity(P, psi::Psi{1})
-	@unpack ψ = psi
-    	ψx = gradient(P, psi)
-	wx = @. imag(conj(ψ)*ψx)/abs(ψ)
-    	@. wx[isnan(wx)] = zero(wx[1])
-	return wx
+    @unpack ψ = psi
+    ψx = gradient(P, psi)
+    wx = @. imag(conj(ψ)*ψx)/abs(ψ)
+    @. wx[isnan(wx)] = zero(wx[1])
+    return wx
 end
 
 function weightedvelocity(P, psi::Psi{2},Ω = 0)
-	@unpack ψ,X = psi
-    	x,y = X
-    	ψx,ψy = gradient(P, psi)
-    	rhosq = abs.(ψ)
-	wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq
-	wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-	return wx,wy
+    @unpack ψ,X = psi
+    x,y = X
+    ψx,ψy = gradient(P, psi)
+    rhosq = abs.(ψ)
+    wx = @. imag(conj(ψ)*ψx)/rhosq + Ω*y'.*rhosq
+    wy = @. imag(conj(ψ)*ψy)/rhosq - Ω*x.*rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    return wx,wy
 end
 
 function weightedvelocity(P, psi::Psi{3})
-	@unpack ψ = psi
-	rhosq = abs.(ψ)
-    	ψx,ψy,ψz = gradient(P, psi)
-	wx = @. imag(conj(ψ)*ψx)/rhosq
-	wy = @. imag(conj(ψ)*ψy)/rhosq
-	wz = @. imag(conj(ψ)*ψz)/rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-    	@. wz[isnan(wz)] = zero(wz[1])
-	return wx,wy,wz
+    @unpack ψ = psi
+    rhosq = abs.(ψ)
+    ψx,ψy,ψz = gradient(P, psi)
+    wx = @. imag(conj(ψ)*ψx)/rhosq
+    wy = @. imag(conj(ψ)*ψy)/rhosq
+    wz = @. imag(conj(ψ)*ψz)/rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    @. wz[isnan(wz)] = zero(wz[1])
+    return wx,wy,wz
 end
 
 """
@@ -351,27 +351,27 @@ The `D` velocities returned are `D`-dimensional arrays.
 Uses quasiperiodic boundary conditions and is not well-defined when D = 1.
 """
 function weightedvelocity_qper(psi::Psi_qper2{2})
-	@unpack ψ = psi
-    	ψx,ψy = gradient_qper(psi)
-    	rhosq = abs.(ψ)
-	wx = @. imag(conj(ψ)*ψx)/rhosq
-	wy = @. imag(conj(ψ)*ψy)/rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-	return wx,wy
+    @unpack ψ = psi
+    ψx,ψy = gradient_qper(psi)
+    rhosq = abs.(ψ)
+    wx = @. imag(conj(ψ)*ψx)/rhosq
+    wy = @. imag(conj(ψ)*ψy)/rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    return wx,wy
 end
 
 function weightedvelocity_qper(psi::Psi_qper3{3})
-	@unpack ψ = psi
-	rhosq = abs.(ψ)
-    	ψx,ψy,ψz = gradient_qper(psi)
-	wx = @. imag(conj(ψ)*ψx)/rhosq
-	wy = @. imag(conj(ψ)*ψy)/rhosq
-	wz = @. imag(conj(ψ)*ψz)/rhosq
-    	@. wx[isnan(wx)] = zero(wx[1])
-    	@. wy[isnan(wy)] = zero(wy[1])
-    	@. wz[isnan(wz)] = zero(wz[1])
-	return wx,wy,wz
+    @unpack ψ = psi
+    rhosq = abs.(ψ)
+    ψx,ψy,ψz = gradient_qper(psi)
+    wx = @. imag(conj(ψ)*ψx)/rhosq
+    wy = @. imag(conj(ψ)*ψy)/rhosq
+    wz = @. imag(conj(ψ)*ψz)/rhosq
+    @. wx[isnan(wx)] = zero(wx[1])
+    @. wy[isnan(wy)] = zero(wy[1])
+    @. wz[isnan(wz)] = zero(wz[1])
+    return wx,wy,wz
 end
 
 """
@@ -390,8 +390,8 @@ function helmholtz(wx, wy, kx, ky)
     wxki = @. wxk - wxkc
     wyki = @. wyk - wykc
     wxc = ifft(wxkc); wyc = ifft(wykc)
-  	wxi = ifft(wxki); wyi = ifft(wyki)
-  	Wi = (wxi, wyi); Wc = (wxc, wyc)
+    wxi = ifft(wxki); wyi = ifft(wyki)
+    Wi = (wxi, wyi); Wc = (wxc, wyc)
     return Wi, Wc
 end
 
@@ -408,7 +408,7 @@ function helmholtz(wx, wy, wz, kx, ky, kz)
     wzki = @. wzk - wzkc
     wxc = ifft(wxkc); wyc = ifft(wykc); wzc = ifft(wzkc)
     wxi = ifft(wxki); wyi = ifft(wyki); wzi = ifft(wzki)
-  	Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
+    Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
     return Wi, Wc
 end
 
@@ -421,11 +421,11 @@ function helmholtz(Pall, wx, wy, kx, ky)
     dumx = @. kw*kx
     dumy = @. kw*ky'
     dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1])
-	wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy;
-	wxk -= dumx
-	wyk -= dumy
+    wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy;
+    wxk -= dumx
+    wyk -= dumy
     wxi = inv(Pall)*(wxk); wyi = inv(Pall)*wyk
-  	Wi = (wxi, wyi); Wc = (wxc, wyc)
+    Wi = (wxi, wyi); Wc = (wxc, wyc)
     return Wi, Wc
 end
 
@@ -438,11 +438,11 @@ function helmholtz(Pall, wx, wy, wz, kx, ky, kz)
     dumz = @. kw * kzr  
     dumx[1] = zero(dumx[1]); dumy[1] = zero(dumy[1]); dumz[1] = zero(dumz[1])
     wxc = inv(Pall)*dumx; wyc = inv(Pall)*dumy; wzc = inv(Pall)*dumz
-	wxk -= dumx
-        wyk -= dumy
-	wzk -= dumz
+    wxk -= dumx
+    wyk -= dumy
+    wzk -= dumz
     wxi = inv(Pall)*wxk; wyi = inv(Pall)*wyk; wzi = inv(Pall)*wzk
-	Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
+    Wi = (wxi, wyi, wzi); Wc = (wxc, wyc, wzc)
     return Wi, Wc
 end
 
@@ -470,7 +470,7 @@ function energydecomp(psi::Psi{2})
 end
 
 function energydecomp(psi::Psi{3})
-	@unpack ψ,K = psi; kx,ky,kz = K
+    @unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
     vx,vy,vz = velocity(psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
@@ -496,7 +496,7 @@ function energydecomp(P, psi::Psi{2})
 end
 
 function energydecomp(P, psi::Psi{3})
-	@unpack ψ,K = psi; kx,ky,kz = K
+    @unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
     vx,vy,vz = velocity(P[1],psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
@@ -522,7 +522,7 @@ function energydecomp(psi::Psi_qper2{2})
 end
 
 function energydecomp(psi::Psi_qper3{3})
-	@unpack ψ,K = psi; kx,ky,kz = K
+    @unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
     vx,vy,vz = velocity(psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
@@ -555,7 +555,7 @@ function energydecomp_qper(psi::Psi_qper2{2})
 end
 
 function energydecomp_qper(psi::Psi_qper3{3})
-	@unpack ψ,K = psi; kx,ky,kz = K
+    @unpack ψ,K = psi; kx,ky,kz = K
     a = abs.(ψ)
     vx,vy,vz = velocity_qper(psi)
     wx = @. a*vx; wy = @. a*vy; wz = @. a*vz
@@ -600,7 +600,7 @@ end
 Create a vector that is linearly spaced in log space, containing `n` values bracketed by `a` and `b`.
 """
 function log10range(a,b,n)
-	@assert a>0
+    @assert a>0
     x = LinRange(log10(a),log10(b),n)
     return @. 10^x
 end
@@ -628,23 +628,23 @@ using FFTW.
 function convolve(ψ1,ψ2,X,K)
     n = length(X)
     DΣ = correlation_measure(X,K)
-	ϕ1 = zeropad(conj.(ψ1))
+    ϕ1 = zeropad(conj.(ψ1))
     ϕ2 = zeropad(ψ2)
 
-	χ1 = fft(ϕ1)
-	χ2 = fft(ϕ2)
-	return ifft(χ1.*χ2)*DΣ |> fftshift
+    χ1 = fft(ϕ1)
+    χ2 = fft(ϕ2)
+    return ifft(χ1.*χ2)*DΣ |> fftshift
 end
 
 function convolve(ψ1,ψ2,X,K,Pbig)
     n = length(X)
     DΣ = correlation_measure(X,K)
-	ϕ1 = zeropad(conj.(ψ1))
+    ϕ1 = zeropad(conj.(ψ1))
     ϕ2 = zeropad(ψ2)
 
-	χ1 = (Pbig*ϕ1)
-	χ2 = (Pbig*ϕ2)
-	return (inv(Pbig)*(χ1.*χ2))*DΣ |> fftshift
+    χ1 = (Pbig*ϕ1)
+    χ2 = (Pbig*ϕ2)
+    return (inv(Pbig)*(χ1.*χ2))*DΣ |> fftshift
 end
 
 @doc raw"""
@@ -666,8 +666,8 @@ function auto_correlate(ψ,X,K)
     n = length(X)
     DΣ = correlation_measure(X,K)
     ϕ = zeropad(ψ)
-	χ = fft(ϕ)
-	return ifft(abs2.(χ))*DΣ |> fftshift
+    χ = fft(ϕ)
+    return ifft(abs2.(χ))*DΣ |> fftshift
 end
 
 auto_correlate(psi::Psi{D}) where D = auto_correlate(psi.ψ,psi.X,psi.K)
@@ -676,8 +676,8 @@ function auto_correlate(ψ,X,K,Pbig)
     n = length(X)
     DΣ = correlation_measure(X,K)
     ϕ = zeropad(ψ)
-	χ = (Pbig*ϕ)
-	return (inv(Pbig)*abs2.(χ))*DΣ |> fftshift
+    χ = (Pbig*ϕ)
+    return (inv(Pbig)*abs2.(χ))*DΣ |> fftshift
 end
 
 @doc raw"""
@@ -768,9 +768,9 @@ function cross_correlate(ψ1,ψ2,X,K)
     DΣ = correlation_measure(X,K)
     ϕ1 = zeropad(ψ1)
     ϕ2 = zeropad(ψ2)
-	χ1 = fft(ϕ1)
+    χ1 = fft(ϕ1)
     χ2 = fft(ϕ2)
-	return ifft(conj(χ1).*χ2)*DΣ |> fftshift
+    return ifft(conj(χ1).*χ2)*DΣ |> fftshift
 end
 cross_correlate(psi1::Psi{D},psi2::Psi{D}) where D = cross_correlate(psi1.ψ,psi2.ψ,psi1.X,psi1.K)
 
@@ -779,9 +779,9 @@ function cross_correlate(ψ1,ψ2,X,K,Pbig)
     DΣ = correlation_measure(X,K)
     ϕ1 = zeropad(ψ1)
     ϕ2 = zeropad(ψ2)
-	χ1 = (P*ϕ1)
+    χ1 = (P*ϕ1)
     χ2 = (P*ϕ2)
-	return (inv(Pbig)*(conj(χ1).*χ2))*DΣ |> fftshift
+    return (inv(Pbig)*(conj(χ1).*χ2))*DΣ |> fftshift
 end
 
 function bessel_reduce(k,x,y,C)
@@ -901,8 +901,8 @@ points `k`. Arrays `X`, `K` should be computed using `makearrays`.
 function kinetic_density(k,psi::Psi{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient(psi)
-	cx = auto_correlate(ψx,X,K)
-	cy = auto_correlate(ψy,X,K)
+    cx = auto_correlate(ψx,X,K)
+    cy = auto_correlate(ψy,X,K)
     C = @. 0.5(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -910,7 +910,7 @@ end
 function kinetic_density(k,psi::Psi{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient(psi)
-	cx = auto_correlate(ψx,X,K)
+    cx = auto_correlate(ψx,X,K)
     cy = auto_correlate(ψy,X,K)
     cz = auto_correlate(ψz,X,K)
     C = @. 0.5(cx + cy + cz)
@@ -920,27 +920,22 @@ end
 function kinetic_density(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient(P,psi)
-	cx = auto_correlate(ψx,X,K,P[2])
-	cy = auto_correlate(ψy,X,K,P[2])
-    C = @. 0.5(cx + cy)
+    C = auto_correlate_batch(ψx,ψy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
 function kinetic_density(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient(P,psi)
-	cx = auto_correlate(ψx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(ψy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(ψz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5(cx + cy + cz)
+    C = auto_correlate_batch(ψx,ψy,ψz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
 function kinetic_density(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi; 
     ψx,ψy = gradient_qper(psi)
-	cx = auto_correlate(ψx,X,K)
-	cy = auto_correlate(ψy,X,K)
+    cx = auto_correlate(ψx,X,K)
+    cy = auto_correlate(ψy,X,K)
     C = @. 0.5(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -948,7 +943,7 @@ end
 function kinetic_density(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi;  
     ψx,ψy,ψz = gradient_qper(psi)
-	cx = auto_correlate(ψx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(ψx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(ψy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(ψz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5(cx + cy + cz)
@@ -963,37 +958,37 @@ points `k`, with the usual radial weight in `k` space ensuring normalization und
 """
 function kdensity(k,psi::Psi{2})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K)
+    C = auto_correlate(ψ,X,K)
     return bessel_reduce(k,X...,C)
 end
 
 function kdensity(k,psi::Psi{3})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K)
+    C = auto_correlate(ψ,X,K)
     return sinc_reduce(k,X...,C)
 end
 
 function kdensity(P,k,psi::Psi{2})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K,P[2])
+    C = auto_correlate(ψ,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
 function kdensity(P,k,psi::Psi{3})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K,P[2])[:,:,1:length(X[3])+1]
+    C = auto_correlate(ψ,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
 function kdensity(k,psi::Psi_qper2{2})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K)
+    C = auto_correlate(ψ,X,K)
     return bessel_reduce(k,X...,C)
 end
 
 function kdensity(k,psi::Psi_qper3{3})  
     @unpack ψ,X,K = psi; 
-	C = auto_correlate(ψ,X,K)[:,:,1:length(X[3])+1]
+    C = auto_correlate(ψ,X,K)[:,:,1:length(X[3])+1]
     return sinc_reduce_complex(k,X...,C)
 end
 
@@ -1038,11 +1033,9 @@ end
 
 function full_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
-    wx,wy = weightedvelocity(P,psi)
+    wx,wy = weightedvelocity(P,psi,Ω)
 
-    cx = auto_correlate(wx,X,K,P[2])
-    cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1050,10 +1043,7 @@ function full_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
     wx,wy,wz = weightedvelocity(P,psi)
 
-    cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1109,9 +1099,7 @@ function full_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     @unpack ψ,X,K = psi;  
     jx,jy = current(P,psi,Ω)
 
-    cx = auto_correlate(jx,X,K,P[2])
-    cy = auto_correlate(jy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1119,10 +1107,7 @@ function full_current_spectrum(P,k,psi::Psi{3})
     @unpack ψ,X,K = psi; 
     jx,jy,jz = current(P,psi)
 
-    cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(jx,jy,jz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1159,8 +1144,8 @@ function incompressible_spectrum(k,psi::Psi{2},Ω=0.0)
     Wi, _ = helmholtz(wx,wy,K...)
     wx,wy = Wi
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1171,7 +1156,7 @@ function incompressible_spectrum(k,psi::Psi{3})
     Wi, _ = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K)
+    cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1184,9 +1169,7 @@ function incompressible_spectrum(P,k,psi::Psi{2},Ω=0.0)
     Wi, _ = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wi
 
-	cx = auto_correlate(wx,X,K,P[2])
-	cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1196,10 +1179,7 @@ function incompressible_spectrum(P,k,psi::Psi{3})
     Wi, _ = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1211,8 +1191,8 @@ function incompressible_spectrum(k,psi::Psi_qper2{2})
     Wi, _ = helmholtz(wx,wy,K...)
     wx,wy = Wi
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1225,7 +1205,7 @@ function incompressible_spectrum(k,psi::Psi_qper3{3})
     Wi, _ = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wi
 
-	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
@@ -1244,8 +1224,8 @@ function incompressible_current_spectrum(k,psi::Psi{2},Ω=0.0)
     Ji, _ = helmholtz(jx,jy,K...)
     jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1256,7 +1236,7 @@ function incompressible_current_spectrum(k,psi::Psi{3})
     Ji, _ = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Ji
 
-	cx = auto_correlate(jx,X,K)
+    cx = auto_correlate(jx,X,K)
     cy = auto_correlate(jy,X,K)
     cz = auto_correlate(jz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1269,9 +1249,7 @@ function incompressible_current_spectrum(P,k,psi::Psi{2},Ω=0.0)
     Ji, _ = helmholtz(P[1],jx,jy,K...)
     jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K,P[2])
-	cy = auto_correlate(jy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1281,10 +1259,7 @@ function incompressible_current_spectrum(P,k,psi::Psi{3})
     Ji, _ = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Ji
 
-	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(jx,jy,jz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1294,8 +1269,8 @@ function incompressible_current_spectrum(k,psi::Psi_qper2{2})
     Ji, _ = helmholtz(jx,jy,K...)
     jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1306,7 +1281,7 @@ function incompressible_current_spectrum(k,psi::Psi_qper3{3})
     Ji, _ = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Ji
 
-	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
@@ -1325,8 +1300,8 @@ function compressible_spectrum(k,psi::Psi{2})
     _, Wc = helmholtz(wx,wy,K...)
     wx,wy = Wc
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1337,7 +1312,7 @@ function compressible_spectrum(k,psi::Psi{3})
     _, Wc = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K)
+    cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1350,9 +1325,7 @@ function compressible_spectrum(P,k,psi::Psi{2})
     _, Wc = helmholtz(P[1],wx,wy,K...)
     wx,wy = Wc
 
-	cx = auto_correlate(wx,X,K,P[2])
-	cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1362,10 +1335,7 @@ function compressible_spectrum(P,k,psi::Psi{3})
     _, Wc = helmholtz(P[1],wx,wy,wz,K...)
     wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(wy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(wz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(wx,wy,wz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1375,8 +1345,8 @@ function compressible_spectrum(k,psi::Psi_qper2{2})
     _, Wc = helmholtz(wx,wy,K...)
     wx,wy = Wc
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1387,7 +1357,7 @@ function compressible_spectrum(k,psi::Psi_qper3{3})
     _, Wc = helmholtz(wx,wy,wz,K...)
     wx,wy,wz = Wc
 
-	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
@@ -1406,8 +1376,8 @@ function compressible_current_spectrum(k,psi::Psi{2})
     _, Jc = helmholtz(jx,jy,K...)
     jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1418,7 +1388,7 @@ function compressible_current_spectrum(k,psi::Psi{3})
     _, Jc = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K)
+    cx = auto_correlate(jx,X,K)
     cy = auto_correlate(jy,X,K)
     cz = auto_correlate(jz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1431,9 +1401,7 @@ function compressible_current_spectrum(P,k,psi::Psi{2})
     _, Jc = helmholtz(P[1],jx,jy,K...)
     jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K,P[2])
-	cy = auto_correlate(jy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1443,10 +1411,7 @@ function compressible_current_spectrum(P,k,psi::Psi{3})
     _, Jc = helmholtz(P[1],jx,jy,jz,K...)
     jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K,P[2])[:,:,1:length(X[3])+1]
-    cy = auto_correlate(jy,X,K,P[2])[:,:,1:length(X[3])+1]
-    cz = auto_correlate(jz,X,K,P[2])[:,:,1:length(X[3])+1]
-    C = @. 0.5*(cx + cy + cz)
+    C = auto_correlate_batch(jx,jy,jz,X,K,P[2])[:,:,1:length(X[3])+1]
     return sinc_reduce_real(k,X...,C)
 end
 
@@ -1456,8 +1421,8 @@ function compressible_current_spectrum(k,psi::Psi_qper2{2})
     _, Jc = helmholtz(jx,jy,K...)
     jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1468,7 +1433,7 @@ function compressible_current_spectrum(k,psi::Psi_qper3{3})
     _, Jc = helmholtz(jx,jy,jz,K...)
     jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
@@ -1486,19 +1451,16 @@ function decomposed_spectra(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
     wx,wy = weightedvelocity(P,psi)
     Wi, Wc = helmholtz(P[1],wx,wy,K...)
+    
     wx,wy = Wi
-
-	cx = auto_correlate(wx,X,K,P[2])
-	cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
     εki = bessel_reduce(k,X...,C)
-	wx,wy = Wc
-
-	cx = auto_correlate(wx,X,K,P[2])
-	cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
-	εkc = bessel_reduce(k,X...,C)
-	return εki, εkc
+	
+    wx,wy = Wc
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
+    εkc = bessel_reduce(k,X...,C)
+    
+    return εki, εkc
 end
 
 function decomposed_spectra(P,k,psi::Psi{3})
@@ -1521,40 +1483,42 @@ function decomposed_spectra(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     wx,wy = weightedvelocity_qper(psi)
     Wi, Wc = helmholtz(wx,wy,K...)
+
     wx,wy = Wi
-
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     εki = bessel_reduce(k,X...,C)
-	wx,wy = Wc
-
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    
+    wx,wy = Wc
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     εki = bessel_reduce(k,X...,C)
-	return εki, εkc
+    
+    return εki, εkc
 end
 
 function decomposed_spectra(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     wx,wy,wz = weightedvelocity_qper(psi)
     Wi, Wc = helmholtz(wx,wy,wz,K...)
+    
     wx,wy,wz = Wi
-
-	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     εki = sinc_reduce_real(k,X...,C)
-	wx,wy,wz = Wc
-
-	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    
+    wx,wy,wz = Wc
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     εki = sinc_reduce_real(k,X...,C)
-	return εki, εkc
+
+    return εki, εkc
 end
 
 """
@@ -1592,19 +1556,15 @@ function decomposed_current_spectra(P,k,psi::Psi{2})
     @unpack ψ,X,K = psi 
     jx,jy = current(P,psi)
     Ji, Jc = helmholtz(P[1],jx,jy,K...)
+
     jx,jy = Ji
-
-	cx = auto_correlate(jx,X,K,P[2])
-	cy = auto_correlate(jy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(jx,jy,X,K,P[2])
     jci = bessel_reduce(k,X...,C)
-	jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K,P[2])
-	cy = auto_correlate(jy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    jx,jy = Jc
+    C = auto_correlate_batch(jx,jy,X,K,P[2])
     jcc = bessel_reduce(k,X...,C)
-	return jci, jcc
+    return jci, jcc
 end
 
 function decomposed_current_spectra(P,k,psi::Psi{3})
@@ -1627,40 +1587,42 @@ function decomposed_current_spectra(k,psi::Psi_qper2{2})
     @unpack ψ,X,K = psi 
     jx,jy = current_qper(psi)
     Ji, Jc = helmholtz(jx,jy,K...)
-    jx,jy = Ji
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    jx,jy = Ji
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     jci = bessel_reduce(k,X...,C)
-	jx,jy = Jc
 
-	cx = auto_correlate(jx,X,K)
-	cy = auto_correlate(jy,X,K)
+    jx,jy = Jc
+    cx = auto_correlate(jx,X,K)
+    cy = auto_correlate(jy,X,K)
     C = @. 0.5*(cx + cy)
     jcc = bessel_reduce(k,X...,C)
-	return jci, jcc
+
+    return jci, jcc
 end
 
 function decomposed_current_spectra(k,psi::Psi_qper3{3})
     @unpack ψ,X,K = psi
     jx,jy,jz = current_qper(psi)
     Ji, Jc = helmholtz(jx,jy,jz,K...)
+    
     jx,jy,jz = Ji
-
-	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     jci = sinc_reduce_real(k,X...,C)
-	jx,jy,jz = Jc
 
-	cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
+    jx,jy,jz = Jc
+    cx = auto_correlate(jx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(jy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(jz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
     jcc = sinc_reduce_real(k,X...,C)
-	return jci, jcc
+
+    return jci, jcc
 end
 
 """
@@ -1698,8 +1660,8 @@ function qpressure_spectrum(k,psi::Psi{2})
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy = gradient(psia)
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1709,7 +1671,7 @@ function qpressure_spectrum(k,psi::Psi{3})
     psia = Psi(abs.(ψ) |> complex,X,K )
     wx,wy,wz = gradient(psia)
 
-	cx = auto_correlate(wx,X,K)
+    cx = auto_correlate(wx,X,K)
     cy = auto_correlate(wy,X,K)
     cz = auto_correlate(wz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1721,9 +1683,7 @@ function qpressure_spectrum(P,k,psi::Psi{2})
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy = gradient(P,psia)
 
-	cx = auto_correlate(wx,X,K,P[2])
-	cy = auto_correlate(wy,X,K,P[2])
-    C = @. 0.5*(cx + cy)
+    C = auto_correlate_batch(wx,wy,X,K,P[2])
     return bessel_reduce(k,X...,C)
 end
 
@@ -1741,8 +1701,8 @@ function qpressure_spectrum(k,psi::Psi_qper2{2})
     psia = Psi(abs.(ψ) |> complex,X,K)
     wx,wy = gradient(psia)
 
-	cx = auto_correlate(wx,X,K)
-	cy = auto_correlate(wy,X,K)
+    cx = auto_correlate(wx,X,K)
+    cy = auto_correlate(wy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1752,7 +1712,7 @@ function qpressure_spectrum(k,psi::Psi_qper3{3})
     psia = Psi(abs.(ψ) |> complex,X,K )
     wx,wy,wz = gradient(psia)
 
-	cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
+    cx = auto_correlate(wx,X,K)[:,:,1:length(X[3])+1]
     cy = auto_correlate(wy,X,K)[:,:,1:length(X[3])+1]
     cz = auto_correlate(wz,X,K)[:,:,1:length(X[3])+1]
     C = @. 0.5*(cx + cy + cz)
@@ -1794,8 +1754,8 @@ function incompressible_density(k,psi::Psi{2})
     @. wix *= U # restore phase factors
     @. wiy *= U
 
-	cx = auto_correlate(wix,X,K)
-	cy = auto_correlate(wiy,X,K)
+    cx = auto_correlate(wix,X,K)
+    cy = auto_correlate(wiy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1812,7 +1772,7 @@ function incompressible_density(k,psi::Psi{3})
     @. wiy *= U
     @. wiz *= U
 
-	cx = auto_correlate(wix,X,K)
+    cx = auto_correlate(wix,X,K)
     cy = auto_correlate(wiy,X,K)
     cz = auto_correlate(wiz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1837,8 +1797,8 @@ function incompressible_density_qper(k,psi::Psi_qper2{2})
     @. wix *= U # restore phase factors
     @. wiy *= U
 
-	cx = auto_correlate(wix,X,K)
-	cy = auto_correlate(wiy,X,K)
+    cx = auto_correlate(wix,X,K)
+    cy = auto_correlate(wiy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1855,7 +1815,7 @@ function incompressible_density_qper(k,psi::Psi_qper3{3})
     @. wiy *= U
     @. wiz *= U
 
-	cx = auto_correlate(wix,X,K)
+    cx = auto_correlate(wix,X,K)
     cy = auto_correlate(wiy,X,K)
     cz = auto_correlate(wiz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1879,8 +1839,8 @@ function compressible_density(k,psi::Psi{2})
     @. wcx *= U # restore phase factors
     @. wcy *= U
 
-	cx = auto_correlate(wcx,X,K)
-	cy = auto_correlate(wcy,X,K)
+    cx = auto_correlate(wcx,X,K)
+    cy = auto_correlate(wcy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1897,7 +1857,7 @@ function compressible_density(k,psi::Psi{3})
     @. wcy *= U
     @. wcz *= U
 
-	cx = auto_correlate(wcx,X,K)
+    cx = auto_correlate(wcx,X,K)
     cy = auto_correlate(wcy,X,K)
     cz = auto_correlate(wcz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1922,8 +1882,8 @@ function compressible_density_qper(k,psi::Psi_qper2{2})
     @. wcx *= U # restore phase factors
     @. wcy *= U
 
-	cx = auto_correlate(wcx,X,K)
-	cy = auto_correlate(wcy,X,K)
+    cx = auto_correlate(wcx,X,K)
+    cy = auto_correlate(wcy,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1940,7 +1900,7 @@ function compressible_density_qper(k,psi::Psi_qper3{3})
     @. wcy *= U
     @. wcz *= U
 
-	cx = auto_correlate(wcx,X,K)
+    cx = auto_correlate(wcx,X,K)
     cy = auto_correlate(wcy,X,K)
     cz = auto_correlate(wcz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1961,8 +1921,8 @@ function qpressure_density(k,psi::Psi{2})
     @. rnx *= U # restore phase factors
     @. rny *= U 
 
-	cx = auto_correlate(rnx,X,K)
-	cy = auto_correlate(rny,X,K)
+    cx = auto_correlate(rnx,X,K)
+    cy = auto_correlate(rny,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -1976,7 +1936,7 @@ function qpressure_density(k,psi::Psi{3})
     @. rny *= U 
     @. rnz *= U 
 
-	cx = auto_correlate(rnx,X,K)
+    cx = auto_correlate(rnx,X,K)
     cy = auto_correlate(rny,X,K)
     cz = auto_correlate(rnz,X,K)
     C = @. 0.5*(cx + cy + cz)
@@ -1991,8 +1951,8 @@ function qpressure_density(k,psi::Psi_qper2{2})
     @. rnx *= U # restore phase factors
     @. rny *= U 
 
-	cx = auto_correlate(rnx,X,K)
-	cy = auto_correlate(rny,X,K)
+    cx = auto_correlate(rnx,X,K)
+    cy = auto_correlate(rny,X,K)
     C = @. 0.5*(cx + cy)
     return bessel_reduce(k,X...,C)
 end
@@ -2006,7 +1966,7 @@ function qpressure_density(k,psi::Psi_qper3{3})
     @. rny *= U 
     @. rnz *= U 
 
-	cx = auto_correlate(rnx,X,K)
+    cx = auto_correlate(rnx,X,K)
     cy = auto_correlate(rny,X,K)
     cz = auto_correlate(rnz,X,K)
     C = @. 0.5*(cx + cy + cz)
